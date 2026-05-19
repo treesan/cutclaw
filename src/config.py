@@ -182,8 +182,8 @@ VIDEO_ANALYSIS_MODEL = "openai/doubao-seed-2.0-lite"
 VIDEO_ANALYSIS_ENDPOINT = "https://ark.cn-beijing.volces.com/api/plan/v3"
 # API base URL for the video analysis model.
 
-VIDEO_ANALYSIS_API_KEY = "ark-3af8e5e6-6310-4667-8df7-80dc54d3b9d1-6ba71"
-# API key for the video analysis model.
+VIDEO_ANALYSIS_API_KEY = os.environ.get("VIDEO_ANALYSIS_API_KEY", "")
+# API key for the video analysis model. Set as env var VIDEO_ANALYSIS_API_KEY.
 
 CAPTION_BATCH_SIZE = 64
 # Batch size for parallel clip captioning/analysis.
@@ -199,8 +199,8 @@ SCENE_ANALYSIS_MIN_FRAMES = 6
 AUDIO_LITELLM_MODEL = "openai/mimo-v2.5"
 # Cloud model used for audio captioning and structure analysis.
 
-AUDIO_LITELLM_API_KEY = "sk-cbyrrsm7m0gdfxv5jy0bnlguchomnttmx5mccgxgp8b5dnhs"
-# API key for the audio model.
+AUDIO_LITELLM_API_KEY = os.environ.get("AUDIO_LITELLM_API_KEY", "")
+# API key for the audio model. Set as env var AUDIO_LITELLM_API_KEY.
 
 AUDIO_LITELLM_BASE_URL = "https://api.xiaomimimo.com/v1"
 # API base URL for the audio model.
@@ -357,8 +357,8 @@ EDITOR_MAX_ITERATIONS = 10
 AGENT_LITELLM_URL = "https://api.minimaxi.com/v1"
 # API base URL for the agent LLM.
 
-AGENT_LITELLM_API_KEY = "sk-cp-o8mlZAnSazt9JSTJdqy2zC7gkBZ0HKIfJMZdw2wMc89uH6yhMuueVAWO19VF3FOGFdl1ir9DQSWZCEiEcz8Dj5pElRJq9D9DswKorsPdmbihpTdTnIpbjg8"
-# API key for the agent LLM.
+AGENT_LITELLM_API_KEY = os.environ.get("AGENT_LITELLM_API_KEY", "")
+# API key for the agent LLM. Set as env var AGENT_LITELLM_API_KEY.
 
 AGENT_LITELLM_MODEL = "openai/MiniMax-M2.7"
 # Primary model for the agent.
