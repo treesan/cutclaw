@@ -88,6 +88,7 @@ def main():
     parser.add_argument("--Instruction", help="The Instruction to cutting the video.", default="Mia and Sebastian's relationship evolves through sweet to break moments.")
     parser.add_argument("--instruction_type", help="Type of instruction: 'object' for Object-centric or 'narrative' for Narrative-driven", default="object", choices=["object", "narrative"])
     parser.add_argument("--type", help="film or vlog", default="film")
+    parser.add_argument("--preprocess-only", action="store_true", help="只做视频+BGM解析，跳过 Screenwriter 和 EditorCoreAgent")
     parser.add_argument("--SRT_Path", type=str,
                         help="Path to existing SRT file. Skips ASR transcription; diarization still runs to assign speakers.")
 
@@ -431,6 +432,15 @@ def main():
     
 
 
+
+    # ── --preprocess-only 模式：只做解析，到此结束 ──
+    if getattr(args, "preprocess_only", False):
+        print("\n" + "="*60)
+        print("⏭️  --preprocess-only: 预处理完成，跳过 Screenwriter + EditorCoreAgent")
+        print("    视频解析 → Output/Video/ 目录")
+        print("    BGM 分析 → Output/Audio/ 目录")
+        print("="*60 + "\n")
+        return
 
     # Step 5: Run Screenwriter to generate shot plan
     if os.path.exists(scene_summaries_dir) and os.path.exists(audio_caption_file):

@@ -60,7 +60,7 @@ except ImportError:
 
 class PlannerAgent:
     """
-    锦书策划引擎 — 生成 shot_plan、shot_point，并产出给 Tree 的汇报。
+    锦书策划引擎 — 生成 shot_plan，并产出给 Tree 的汇报。
 
     调用流程（锦书视角）：
     1. 初始化 PlannerAgent（传入短影产出的素材路径）
@@ -162,7 +162,7 @@ class PlannerAgent:
         }
         self._shot_plan_history.append(record)
 
-        print(f"[PlannerAgent] ✅ Shot plan generated in {elapsed:.1f}s")
+        print(f"[PlannerAgent] [ok] Shot plan generated in {elapsed:.1f}s")
         print(f"[PlannerAgent] 💾 Saved to: {self._shot_plan_path}")
 
         return {"shot_plan": shot_plan, "path": self._shot_plan_path, "elapsed": elapsed, "iteration": len(self._shot_plan_history)}
@@ -178,7 +178,7 @@ class PlannerAgent:
             data = json.load(f)
 
         lines = []
-        lines.append("📋 分镜方案审查")
+        lines.append("[clip] 分镜方案审查")
         lines.append("")
 
         # 整体主题
@@ -189,7 +189,7 @@ class PlannerAgent:
         meta = data.get("metadata", {})
         audio_start = meta.get("selected_audio_start", "?")
         audio_end = meta.get("selected_audio_end", "?")
-        lines.append(f"🎵 配乐段落：{audio_start} → {audio_end}")
+        lines.append(f"[music] 配乐段落：{audio_start} → {audio_end}")
 
         # Hook 对话
         hook = data.get("hook_dialogue", {})
@@ -204,7 +204,7 @@ class PlannerAgent:
         video_struct = data.get("video_structure", [])
         if video_struct:
             lines.append("")
-            lines.append("🎬 分镜列表：")
+            lines.append("[film] 分镜列表：")
             for sec in video_struct:
                 shot_plan = sec.get("shot_plan", {})
                 shots = shot_plan.get("shots", [])
@@ -234,114 +234,6 @@ class PlannerAgent:
     # ═══════════════════════════════════════════════════════════════ #
     #  Step 2: 生成 shot_point（精确剪辑点）
     # ═══════════════════════════════════════════════════════════════ #
-
-    def generate_shot_point(self) -> Dict[str, Any]:
-        """
-        锦书调用：根据已有 shot_plan 生成精确剪辑点。
-        如果 shot_plan 不存在，先生成默认 shot_plan。
-        """
-        from src.core import EditorCoreAgent, ParallelShotOrchestrator
-        from src.video.preprocess import decode_video_to_frames as _decode
-
-        os.makedirs(os.path.dirname(self._shot_point_path), exist_ok=True)
-
-        # 确保 shot_plan 存在
-        if not os.path.exists(self._shot_plan_path):
-            print(f"[PlannerAgent] ⚠️  Shot plan not found, generating default first...")
-            self.generate_shot_plan(strategy_context="制作一个15秒卡点短片")
-
-        frames_dir = os.path.join(os.path.dirname(self.output_dir), "Video",
-                                   os.path.splitext(os.path.basename(self.video_path))[0], "frames")
-        caption_file = os.path.join(os.path.dirname(self.output_dir), "Video",
-                                     os.path.splitext(os.path.basename(self.video_path))[0],
-                                     "captions", "captions.json")
-        use_parallel = (
-            self.video_type == "film"
-            and getattr(project_config, "PARALLEL_SHOT_ENABLED", True)
-        )
-
-        print(f"[PlannerAgent] ✂️  Running EditorCoreAgent...")
-        t0 = time.time()
-
-        if use_parallel:
-            max_workers = getattr(project_config, "PARALLEL_SHOT_MAX_WORKERS", 4)
-            max_reruns = getattr(project_config, "PARALLEL_SHOT_MAX_RERUNS", 2)
-            orchestrator = ParallelShotOrchestrator(
-                video_caption_path=caption_file,
-                video_scene_path=self.scene_summaries_dir,
-                audio_caption_path=self.audio_caption_path,
-                output_path=self._shot_point_path,
-                max_iterations=getattr(project_config, "EDITOR_MAX_ITERATIONS", 10),
-                video_path=self.video_path,
-                frame_folder_path=frames_dir,
-                transcript_path=self.subtitle_path if (self.subtitle_path and os.path.exists(self.subtitle_path)) else None,
-                max_workers=max_workers,
-                max_reruns=max_reruns,
-            )
-            results = orchestrator.run_parallel(shot_plan_path=self._shot_plan_path)
-        else:
-            editor_agent = EditorCoreAgent(
-                video_caption_path=caption_file,
-                video_scene_path=self.scene_summaries_dir,
-                audio_caption_path=self.audio_caption_path,
-                output_path=self._shot_point_path,
-                max_iterations=getattr(project_config, "EDITOR_MAX_ITERATIONS", 10),
-                video_path=self.video_path,
-                frame_folder_path=frames_dir,
-                transcript_path=self.subtitle_path if (self.subtitle_path and os.path.exists(self.subtitle_path)) else None,
-            )
-            results = editor_agent.run(shot_plan_path=self._shot_plan_path)
-
-        elapsed = round(time.time() - t0, 1)
-
-        record = {
-            "iteration": len(self._shot_point_history) + 1,
-            "elapsed": elapsed,
-            "path": self._shot_point_path,
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "shots_count": len(results) if isinstance(results, list) else 0,
-        }
-        self._shot_point_history.append(record)
-
-        print(f"[PlannerAgent] ✅ Shot point generated in {elapsed:.1f}s")
-        print(f"[PlannerAgent] 💾 Saved to: {self._shot_point_path}")
-
-        return {"shot_point": results, "path": self._shot_point_path, "elapsed": elapsed}
-
-    def summarize_shot_point(self) -> str:
-        """
-        锦书审查用：从 shot_point JSON 提取可读的剪辑列表。
-        """
-        if not os.path.exists(self._shot_point_path):
-            return "⚠️ shot_point 尚未生成"
-
-        with open(self._shot_point_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        clips = data if isinstance(data, list) else data.get("clips", data.get("shots", []))
-
-        lines = []
-        lines.append("✂️  精确剪辑点审查")
-        lines.append("")
-
-        total_dur = 0.0
-        for i, clip in enumerate(clips):
-            status = clip.get("status", "success")
-            shot_idx = clip.get("shot_idx", clip.get("id", i + 1))
-            sub_clips = clip.get("clips", [clip])
-            dur = clip.get("total_duration", clip.get("duration", 0))
-
-            for sc in sub_clips:
-                start = sc.get("start", "?")
-                end = sc.get("end", "?")
-                d = sc.get("duration", 0)
-                total_dur += d
-                lines.append(f"  #{shot_idx}  {start} → {end}  ({d:.1f}s)")
-
-        lines.append("")
-        lines.append(f"📊 统计：{len(clips)} 段剪辑 | 总时长 {total_dur:.1f}s")
-
-        return "\n".join(lines)
 
     # ═══════════════════════════════════════════════════════════════ #
     #  Step 3: 生成给 Tree 的汇报
@@ -377,57 +269,6 @@ class PlannerAgent:
             audio_end = meta.get("selected_audio_end", "?")
             plan_summary = f"- 分镜主题：{theme}\n- 配乐段落：{audio_start} → {audio_end}"
 
-        # 读取 shot_point 生成剪辑表格
-        clip_table = ""
-        total_dur = 0.0
-        if os.path.exists(self._shot_point_path):
-            with open(self._shot_point_path, "r", encoding="utf-8") as f:
-                point_data = json.load(f)
-            clips = point_data if isinstance(point_data, list) else point_data.get("clips", point_data.get("shots", []))
-
-            table_rows = []
-            for i, clip in enumerate(clips):
-                shot_idx = clip.get("shot_idx", clip.get("id", i + 1))
-                sub_clips = clip.get("clips", [clip])
-                for sc in sub_clips:
-                    start = sc.get("start", "?")
-                    end = sc.get("end", "?")
-                    d = sc.get("duration", 0)
-                    total_dur += d
-                    table_rows.append(f"| {shot_idx} | {start} → {end} | {d:.1f}s |")
-
-            if table_rows:
-                clip_table = (
-                    "🎥 剪辑列表：\n"
-                    "| # | 时间范围 | 时长 |\n"
-                    "|---|---------|------|\n"
-                ) + "\n".join(table_rows)
-                clip_table += f"\n\n📊 总时长：{total_dur:.1f}s"
-
-        # 完整汇报
-        report = f"""🎬 剪辑方案确认 — 请审阅
-
-📋 素材概览
-- 视频：{video_name}（{dur_str}）
-- 配乐：{self.bgm_name}
-- 类型：{self.video_type}
-
-{plan_summary}
-
-{clip_table}
-
-🎵 配乐段落：{audio_start if 'audio_start' in dir() else '?'} → {audio_end if 'audio_end' in dir() else '?'}
-
-✅ 请确认：
-1. 分镜方案是否符合预期
-2. 剪辑点是否正确
-3. 配乐段是否合适
-
-回复「确认执行」或提出修改意见 🎬
-"""
-        # 去掉多余的变量引用
-        return report
-
     # ═══════════════════════════════════════════════════════════════ #
     #  便利方法：一键全流程（适合快速测试）
     # ═══════════════════════════════════════════════════════════════ #
@@ -435,26 +276,52 @@ class PlannerAgent:
     def run(
         self,
         strategy_context: str = "",
-        skip_shot_plan: bool = False,
-        skip_shot_point: bool = False,
     ) -> Dict[str, Any]:
-        """一键生成 shot_plan + shot_point（用于快速测试，锦书建议用分步法）。"""
+        """生成 shot_plan（锦书用）。"""
         result = {
             "video_path": self.video_path,
             "shot_plan_path": self._shot_plan_path,
-            "shot_point_path": self._shot_point_path,
         }
 
-        if not skip_shot_plan:
-            r1 = self.generate_shot_plan(strategy_context=strategy_context)
-            result["shot_plan_elapsed"] = r1["elapsed"]
-        else:
-            result["shot_plan_elapsed"] = 0
-
-        if not skip_shot_point:
-            r2 = self.generate_shot_point()
-            result["shot_point_elapsed"] = r2["elapsed"]
-        else:
-            result["shot_point_elapsed"] = 0
+        r1 = self.generate_shot_plan(strategy_context=strategy_context)
+        result["shot_plan_elapsed"] = r1["elapsed"]
 
         return result
+
+
+# ──────────────────────────────────────────────────────────────
+# CLI 入口
+# ──────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="PlannerAgent — 锦书策划引擎 CLI")
+    parser.add_argument("--video", required=True, help="视频路径")
+    parser.add_argument("--scene-summaries", required=True, help="scene_summaries_video 目录")
+    parser.add_argument("--audio-captions", required=True, help="audio/captions.json 路径")
+    parser.add_argument("--subtitle", default="", help="字幕 SRT 路径")
+    parser.add_argument("--bgm-name", default="", help="BGM 名称")
+    parser.add_argument("--output-dir", default="", help="输出目录")
+    parser.add_argument("--strategy", default="", help="剪辑策略（strategy_context）")
+    parser.add_argument("--action", default="shot_plan", choices=["shot_plan", "report"],
+                        help="执行动作")
+
+    args = parser.parse_args()
+
+    planner = PlannerAgent(
+        video_path=args.video,
+        scene_summaries_dir=args.scene_summaries,
+        audio_caption_path=args.audio_captions,
+        subtitle_path=args.subtitle or None,
+        bgm_name=args.bgm_name or None,
+        output_dir=args.output_dir or None,
+    )
+
+    if args.action == "shot_plan":
+        result = planner.generate_shot_plan(strategy_context=args.strategy)
+        print(f"\n=== 审查 shot_plan ===")
+        print(planner.summarize_shot_plan())
+
+    elif args.action == "report":
+        print(planner.generate_report())

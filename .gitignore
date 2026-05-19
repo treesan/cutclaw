@@ -43,3 +43,6 @@ src/config_my.py
 asset/demo_compressed
 ProVideo
 CLAUDE.md
+
+# macOS
+.DS_Store

@@ -363,6 +363,22 @@ AGENT_LITELLM_API_KEY = os.environ.get("AGENT_LITELLM_API_KEY", "")
 AGENT_LITELLM_MODEL = "openai/MiniMax-M2.7"
 # Primary model for the agent.
 
+# ───────────────────────────────────────────────────────────────────────────────
+# DirectShotSelector (直接推理替代 EditorCoreAgent Agent 循环)
+# ───────────────────────────────────────────────────────────────────────────────
+
+DIRECT_SHOT_SELECTOR_ENABLED = True
+# 主开关：True 用 DirectShotSelector 直推，False 用原有的 EditorCoreAgent 循环。
+
+DIRECT_SHOT_SELECTOR_MODEL = "openai/MiniMax-M2.7"
+# DirectShotSelector 使用的模型。默认复用 AGENT_LITELLM_MODEL。
+
+DIRECT_SHOT_SELECTOR_MAX_TOKENS = 8192
+# 直推输出的最大 token 数。
+
+DIRECT_SHOT_SELECTOR_TEMPERATURE = 0.3
+# 直推温度，低温度保一致性。
+
 PARALLEL_SHOT_ENABLED = True
 # Whether to enable parallel shot selection (ParallelShotOrchestrator) in film mode.
 
@@ -379,8 +395,20 @@ PARALLEL_SHOT_MAX_RERUNS = 2
 ENABLE_REVIEWER = True
 # Master switch for the Reviewer agent. Set to False to skip all review checks (face quality, duplicate detection, etc.).
 
-ENABLE_FACE_QUALITY_CHECK = True
-# Enable face/protagonist quality checks before finalizing shot selection.
+# ═══════════════════════════════════════════════════════════════════════════════
+# Quality Validation (face / protagonist / aesthetic checks)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+FACE_QUALITY_CHECK_MODE = "auto"
+# 验证模式 (quality validation mode):
+#   "auto"    - 自动采样 scene_summaries 判断内容类型
+#              有人物场景 → strict，无人物场景 → relaxed
+#   "strict"  - 严格模式：主角出镜率 ≥ MIN_PROTAGONIST_RATIO，主角框 ≥ VLM_MIN_BOX_SIZE
+#   "relaxed" - 跳过 face check，只做 shot 不重叠检查
+#   "off"     - 跳过所有质量验证（face + aesthetic + overlap）
+# 旅行/Vlog/航拍推荐 "relaxed" 或 "auto"
+
+# --- 以下配置仅 strict 模式生效 ---
 
 VLM_FACE_LOG_EACH_FRAME = False
 # Print per-frame protagonist detection logs (very verbose; debug only).
@@ -393,7 +421,7 @@ FACE_QUALITY_CHECK_METHOD = "vlm"
 
 # ------------------ Protagonist Presence Constraints ------------------ #
 
-MAIN_CHARACTER_NAME = os.path.basename(os.path.expanduser("~")).capitalize()
+MAIN_CHARACTER_NAME = ""
 # Main character / target subject name (comma-separated for multiple roles).
 # Auto-detected from system home directory (e.g. /Users/tree -> "Tree").
 # This is one of the highest-impact parameters in object mode.
