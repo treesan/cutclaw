@@ -38,7 +38,15 @@ import soundfile as sf
 import numpy as np
 
 from src.audio.litellm_client import call_audio_api, call_audio_api_batch
+from src.audio.litellm_client import AUDIO_MODEL as _LITELLM_AUDIO_MODEL
 from .. import config
+
+
+# --------------------------------------------------------------------------- #
+def _get_model_name() -> str:
+    """Return the model name configured for audio calls, for error messages."""
+    return _LITELLM_AUDIO_MODEL
+
 
 # --------------------------------------------------------------------------- #
 #                              Prompt templates                               #
@@ -767,13 +775,22 @@ def caption_audio_with_madmom_segments(
             print(f"\n⚠ Retry attempt {retry_attempt + 1}/{MAX_RETRIES}...")
 
         print("\nGenerating overall analysis for the entire audio...")
-        overall_analysis_text = generate_overall_analysis(
-            audio_path=audio_path,
-            temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens,
-            audio_duration=audio_duration,
-        )
+        try:
+            overall_analysis_text = generate_overall_analysis(
+                audio_path=audio_path,
+                temperature=temperature,
+                top_p=top_p,
+                max_tokens=max_tokens,
+                audio_duration=audio_duration,
+            )
+        except Exception as e:
+            print(f"⚠ AI overall analysis failed: {e}")
+            print(f"  The current model '{_get_model_name()}' may not support audio input.")
+            print(f"  Falling back to default sections based on Madmom keypoints.")
+            overall_analysis_text = ""
+            stage1_sections = []
+            overall_summary = ""
+            break  # Exit retry loop immediately — model clearly doesn't support audio
 
         # Try to parse JSON from overall analysis
         overall_json = extract_json_from_text(overall_analysis_text)
@@ -1210,14 +1227,25 @@ def caption_audio_with_madmom_segments(
     print(f"Processing {len(valid_segment_paths)} sub-segments concurrently (max_workers={max_workers})...")
     print(f"{'·'*80}")
 
-    caption_texts = generate_audio_captions_batch(
-        audio_paths=valid_segment_paths,
-        prompt=AUDIO_SEG_KEYPOINT_PROMPT,
-        temperature=temperature,
-        top_p=top_p,
-        max_tokens=max_tokens,
-        max_workers=max_workers,
-    )
+    # Skip AI captioning if overall analysis already failed (model doesn't support audio)
+    if not overall_summary:
+        print(f"  ⏭️ Skipping AI captioning — model '{_get_model_name()}' does not support audio input")
+        print(f"  Using empty captions for all {len(valid_segment_paths)} sub-segments")
+        caption_texts = [""] * len(valid_segment_paths)
+    else:
+        try:
+            caption_texts = generate_audio_captions_batch(
+                audio_paths=valid_segment_paths,
+                prompt=AUDIO_SEG_KEYPOINT_PROMPT,
+                temperature=temperature,
+                top_p=top_p,
+                max_tokens=max_tokens,
+                max_workers=max_workers,
+            )
+        except Exception as e:
+            print(f"⚠ AI sub-segment captioning failed: {e}")
+            print(f"  Falling back to empty captions for all {len(valid_segment_paths)} sub-segments")
+            caption_texts = [""] * len(valid_segment_paths)
 
     for path, caption_text in zip(valid_segment_paths, caption_texts):
         subsegment_captions[path] = caption_text

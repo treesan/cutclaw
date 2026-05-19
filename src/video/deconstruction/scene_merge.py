@@ -4,15 +4,26 @@ from tqdm import tqdm
 import json
 import re
 import numpy as np
-from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from src import config
+
+# Lazy import: SentenceTransformer is imported inside __init__ because
+# it triggers a HuggingFace model download/check that can hang
+# in restricted network environments.
+_SentenceTransformer = None
+def _get_sentence_transformer():
+    global _SentenceTransformer
+    if _SentenceTransformer is None:
+        from sentence_transformers import SentenceTransformer as _ST
+        _SentenceTransformer = _ST
+    return _SentenceTransformer
 from src.utils.media_utils import natural_sort_key, hhmmss_to_seconds
 
 class OptimizedSceneSegmenter:
-    def __init__(self, model_name='all-MiniLM-L6-v2'):
+    def __init__(self, model_name='/Users/tree/.cache/torch/sentence_transformers/all-MiniLM-L6-v2'):
         print(f"🚀 [SceneMerge] Loading model ({model_name})...")
-        self.encoder = SentenceTransformer(model_name)
+        ST = _get_sentence_transformer()
+        self.encoder = ST(model_name)
         
         # 缓存字典
         self.tag_embedding_cache = {} 

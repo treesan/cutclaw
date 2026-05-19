@@ -1,7 +1,9 @@
 # Core pipeline
+Cython
 numpy
 torch==2.8.0
-decord==0.6.0
+# decord==0.6.0
+eva-decord-plus
 scenedetect==0.6.7.1
 av
 Pillow
@@ -41,4 +43,4 @@ ffmpeg-python
 matplotlib
 
 # External system dependency:
-# ffmpeg must be installed and available in PATH.
+# ffmpeg(@7) must be installed and available in PATH.

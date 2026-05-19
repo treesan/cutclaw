@@ -251,6 +251,7 @@ SHOT_CAPTION_PROMPT = """
     1. **Clustering Cues**: The 'environment_tags' and 'lighting_color' are crucial for algorithmically grouping shots into scenes. Be consistent.
     2. **Entities**: Using the character name from transcript. If you don't know a name, use a visual descriptor (e.g., "Man in Black").
     3. **Format**: Return ONLY the JSON object. No markdown blocks.
+    4. **Language**: Output ALL descriptive text fields (event_summary, shot_purpose, mood, lighting_mood, color_palette, appearance, facial_expression, composition_note, narrative_function, etc.) in **Chinese (Simplified Chinese)**. Keep JSON field names in English.
     """
 
 
@@ -369,6 +370,7 @@ For "content" or "mixed" scenes, write a COHERENT STORY:
         "editing_notes": "Specific notes for video editors (e.g., 'Skip first 21 seconds of logo', 'Good establishing shot', 'Contains key dialogue about X')"
     }
 }
+    [Language] Output ALL descriptive text in **Chinese (Simplified Chinese)**. Keep JSON field names in English.
 """
 
 
@@ -602,6 +604,7 @@ Count how many scenes you picked from each third. If any third has 0 scenes, rep
     "emotion": "Overall emotional tone that aligns with instruction",
     "related_scenes": [8-15 scene indices with BEST instruction+music alignment]
 }
+    [Language] Output ALL descriptive text in **Chinese (Simplified Chinese)**. Keep JSON field names in English.
 
 
 """

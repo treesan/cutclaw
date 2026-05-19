@@ -840,7 +840,7 @@ elif not st.session_state.running and st.session_state.result_shot_json:
     ending_video = os.path.join(PROJECT_ROOT, "resource", "ending", "ending.mp4")
     dialogue_font = os.path.join(PROJECT_ROOT, "resource", "font", "Pulp Fiction Italic M54.ttf")
 
-    def run_render(ratio: str):
+    def run_render(ratio: str) -> bool:
         out = output_path(ratio)
         cmd = [
             "python", "render/render_video.py",
@@ -859,7 +859,11 @@ elif not st.session_state.running and st.session_state.result_shot_json:
             cmd += ["--dialogue-font", dialogue_font]
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
-        subprocess.run(cmd, cwd=PROJECT_ROOT, env=env)
+        result = subprocess.run(cmd, cwd=PROJECT_ROOT, env=env, capture_output=True, text=True)
+        if result.returncode != 0:
+            st.error(f"❌ Render {ratio} failed. Check terminal logs for details:\n{result.stderr[-1000:]}")
+            return False
+        return True
 
     # Render buttons
     cols = st.columns(3)
@@ -867,8 +871,9 @@ elif not st.session_state.running and st.session_state.result_shot_json:
         with cols[i]:
             if st.button(f"▶ Render {ratio}", key=f"render_{ratio}", use_container_width=True):
                 with st.spinner(f"Rendering {ratio}…"):
-                    run_render(ratio)
-                st.rerun()
+                    ok = run_render(ratio)
+                if ok:
+                    st.rerun()
 
     # Video previews
     rendered = [(r, output_path(r)) for r in RATIOS if os.path.exists(output_path(r))]

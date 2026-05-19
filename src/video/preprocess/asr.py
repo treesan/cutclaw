@@ -13,6 +13,9 @@ from src.utils.time_format_convert import format_srt_timestamp
 
 from src import config
 
+# 异步音频 API 导入
+from src.audio.mimo_audio_api import MimoAudioAPI
+
 
 def _ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
@@ -397,10 +400,18 @@ def _transcribe_litellm(
         with open(tmp_path, "rb") as f:
             audio_b64 = base64.b64encode(f.read()).decode("utf-8")
 
-        msg = [{"role": "user", "content": [
-            {"type": "text", "text": prompt},
-            {"type": "image_url", "image_url": {"url": f"data:audio/mp3;base64,{audio_b64}"}},
-        ]}]
+        # 使用正确的音频输入格式：Qwen3-Omni-Captioner 用 input_audio，旧模型用 image_url
+        is_qwen = "qwen3-omni" in model.lower() or "qwen3_omni" in model.lower()
+        if is_qwen and api_base and "dashscope" in api_base:
+            msg = [{"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                {"type": "input_audio", "input_audio": {"data": f"data:audio/mp3;base64,{audio_b64}"}},
+            ]}]
+        else:
+            msg = [{"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:audio/mp3;base64,{audio_b64}"}},
+            ]}]
         return msg, segment_start_time, tmp_path
 
     def _parse_response(content, segment_idx, segment_start_time):
@@ -522,6 +533,277 @@ def _transcribe_litellm(
 # Unified transcribe entry point
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Qwen3-Omni-Captioner ASR (原生 input_audio 协议)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _transcribe_qwen(
+    audio_path: str,
+    model_raw: str,
+    api_key: Optional[str],
+    api_base: Optional[str],
+    language: Optional[str],
+    max_segment_size_mb: float = 1.0,
+    batch_size: int = 8,
+    debug_dir: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    使用 Qwen-Omni 系列模型做语音识别。
+    Qwen3.5-Omni-Plus 支持 text + input_audio 同时输入，
+    可以指定 prompt 要求输出纯文本转写结果。
+    通过 call_qwen_audio_batch 并发调用。
+    """
+    import soundfile as sf
+    import tempfile
+    import re
+
+    from src.audio.qwen_audio_api import call_qwen_audio_batch
+
+    # 去掉 litellm 前缀
+    model = model_raw
+    if model.startswith("openai/"):
+        model = model[len("openai/"):]
+
+    print(f"[ASR/Qwen] Model: {model}")
+
+    # 读取音频
+    audio_array, audio_sr = sf.read(audio_path, dtype="float32", always_2d=False)
+    total_duration = len(audio_array) / audio_sr
+
+    # 按文件大小 + 最大时长 8s 分片（确保每条字幕在 10-20s 范围内）
+    estimated_mp3_mb = (32000 * total_duration) / (8 * 1024 * 1024)
+    num_segments_by_size = max(1, int(estimated_mp3_mb // max_segment_size_mb) +
+                        (1 if estimated_mp3_mb % max_segment_size_mb > 0 else 0))
+    num_segments_by_duration = max(1, int(total_duration // 8) +
+                                  (1 if total_duration % 8 > 0 else 0))
+    num_segments = max(num_segments_by_size, num_segments_by_duration)
+    segment_duration = total_duration / num_segments
+
+    print(f"[ASR/Qwen] Audio: {total_duration:.1f}s, splitting into {num_segments} segments (by_size={num_segments_by_size}, by_duration={num_segments_by_duration})")
+
+    # ASR prompt（Qwen3.5-Omni 支持 text+audio，prompt 不会被忽略！）
+    prompt = (
+        "Transcribe the speech in this audio segment. "
+        "Output ONLY the raw transcribed text, no commentary, no descriptions. "
+        "If there is no speech, output '[no speech]'. "
+    )
+    if language:
+        lang_hint = "Chinese" if language in ("zh", "Chinese") else language
+        prompt += f"The audio language is {lang_hint}. "
+    prompt = prompt.strip()
+
+    # 提取每个 segment 的音频文件
+    segment_paths = []
+    segment_meta = []  # (idx, start_time, end_time)
+    for i in range(num_segments):
+        start_sample = int(i * segment_duration * audio_sr)
+        end_sample = int((i + 1) * segment_duration * audio_sr) if i < num_segments - 1 else len(audio_array)
+        segment_audio = audio_array[start_sample:end_sample]
+        start_time = i * segment_duration
+        end_time = min((i + 1) * segment_duration, total_duration)
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            seg_path = tmp.name
+            sf.write(seg_path, segment_audio, audio_sr)
+
+        segment_paths.append(seg_path)
+        segment_meta.append((i, start_time, end_time))
+
+    print(f"[ASR/Qwen] Sending {len(segment_paths)} segments via Qwen-Omni...")
+
+    # Qwen3.5-Omni 支持 prompt+audio，传入 ASR 指示
+    texts = call_qwen_audio_batch(
+        audio_paths=segment_paths,
+        prompt=prompt,
+        max_tokens=2048,
+        max_workers=batch_size,
+        model=model,
+        api_key=api_key,
+        base_url=api_base,
+    )
+
+    # 清理临时文件
+    for p in segment_paths:
+        try:
+            os.unlink(p)
+        except OSError:
+            pass
+
+    # 解析结果（Qwen3.5-Omni 会按 prompt 要求输出纯文本）
+    all_sentence_info = []
+    all_segments = []
+    full_text_parts = []
+
+    for idx, text in enumerate(texts):
+        seg_idx, start_time, end_time = segment_meta[idx]
+
+        if not text or not text.strip() or text.strip() == "[no speech]":
+            continue
+
+        # 保存调试文件
+        if debug_dir:
+            os.makedirs(debug_dir, exist_ok=True)
+            seg_label = f"qseg{seg_idx+1:03d}_{int(start_time//60):02d}m{int(start_time%60):02d}s-{int(end_time//60):02d}m{int(end_time%60):02d}s"
+            seg_srt_path = os.path.join(debug_dir, f"{seg_label}.txt")
+            with open(seg_srt_path, "w", encoding="utf-8") as f:
+                f.write(text)
+
+        raw_text = text.strip()
+
+        full_text_parts.append(raw_text)
+        all_sentence_info.append({
+            "text": raw_text,
+            "speaker": None,
+            "timestamp": [[raw_text, int(start_time * 1000), int(end_time * 1000)]],
+        })
+        all_segments.append({"start": start_time, "end": end_time, "text": raw_text})
+
+    print(f"[ASR/Qwen] Transcription complete: {len(all_sentence_info)} segments")
+
+    return {
+        "text": " ".join(full_text_parts),
+        "sentence_info": all_sentence_info,
+        "segments": all_segments,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MiMo Audio ASR（使用 MimoAudioAPI，原生 input_audio 协议）
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _transcribe_mimo(
+    audio_path: str,
+    model_raw: str,
+    api_key: Optional[str],
+    api_base: Optional[str],
+    language: Optional[str],
+    max_segment_size_mb: float = 1.0,
+    batch_size: int = 3,
+    debug_dir: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    使用 MiMo 系列模型做语音识别。
+    通过 MimoAudioAPI 并发调用，原生 input_audio 协议。
+    """
+    import soundfile as sf
+    import tempfile
+    import re
+
+    # 去掉 litellm 前缀
+    model = model_raw
+    if model.startswith("openai/"):
+        model = model[len("openai/"):]
+
+    print(f"[ASR/MiMo] Model: {model}")
+
+    # 读取音频
+    audio_array, audio_sr = sf.read(audio_path, dtype="float32", always_2d=False)
+    total_duration = len(audio_array) / audio_sr
+
+    # 按文件大小 + 最大时长 8s 分片（确保每条字幕在 10-20s 范围内，Screenwriter 需要）
+    estimated_mp3_mb = (32000 * total_duration) / (8 * 1024 * 1024)
+    num_segments_by_size = max(1, int(estimated_mp3_mb // max_segment_size_mb) +
+                        (1 if estimated_mp3_mb % max_segment_size_mb > 0 else 0))
+    num_segments_by_duration = max(1, int(total_duration // 8) +
+                                  (1 if total_duration % 8 > 0 else 0))
+    num_segments = max(num_segments_by_size, num_segments_by_duration)
+    segment_duration = total_duration / num_segments
+
+    print(f"[ASR/MiMo] Audio: {total_duration:.1f}s, splitting into {num_segments} segments (by_size={num_segments_by_size}, by_duration={num_segments_by_duration})")
+
+    # ASR prompt（MiMo 支持 text+audio）
+    prompt = (
+        "Transcribe the speech in this audio segment. "
+        "Output ONLY the raw transcribed text, no commentary, no descriptions. "
+        "If there is no speech, output '[no speech]'. "
+    )
+    if language:
+        lang_hint = "Chinese" if language in ("zh", "Chinese") else language
+        prompt += f"The audio language is {lang_hint}. "
+    prompt = prompt.strip()
+
+    # 提取每个 segment 的音频文件
+    segment_paths = []
+    segment_meta = []  # (idx, start_time, end_time)
+    for i in range(num_segments):
+        start_sample = int(i * segment_duration * audio_sr)
+        end_sample = int((i + 1) * segment_duration * audio_sr) if i < num_segments - 1 else len(audio_array)
+        segment_audio = audio_array[start_sample:end_sample]
+        start_time = i * segment_duration
+        end_time = min((i + 1) * segment_duration, total_duration)
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            seg_path = tmp.name
+            sf.write(seg_path, segment_audio, audio_sr)
+
+        segment_paths.append(seg_path)
+        segment_meta.append((i, start_time, end_time))
+
+    print(f"[ASR/MiMo] Sending {len(segment_paths)} segments via MimoAudioAPI (max_concurrent={batch_size})...")
+
+    api = MimoAudioAPI(
+        model=model,
+        api_key=api_key,
+        base_url=api_base,
+        use_tp="token-plan" in (api_base or "").lower(),
+        max_retries=5,
+    )
+    texts = api.call_batch(
+        audio_paths=segment_paths,
+        prompt=prompt,
+        max_tokens=2048,
+        max_workers=batch_size,
+    )
+
+    # 清理临时文件
+    for p in segment_paths:
+        try:
+            os.unlink(p)
+        except OSError:
+            pass
+
+    # 解析结果
+    all_sentence_info = []
+    all_segments = []
+    full_text_parts = []
+
+    for idx, text in enumerate(texts):
+        seg_idx, start_time, end_time = segment_meta[idx]
+
+        if not text or not text.strip() or text.strip() == "[no speech]":
+            continue
+
+        # 保存调试文件
+        if debug_dir:
+            os.makedirs(debug_dir, exist_ok=True)
+            seg_label = f"mimo_seg{seg_idx+1:03d}_{int(start_time//60):02d}m{int(start_time%60):02d}s-{int(end_time//60):02d}m{int(end_time%60):02d}s"
+            seg_srt_path = os.path.join(debug_dir, f"{seg_label}.txt")
+            with open(seg_srt_path, "w", encoding="utf-8") as f:
+                f.write(text)
+
+        raw_text = text.strip()
+
+        full_text_parts.append(raw_text)
+        all_sentence_info.append({
+            "text": raw_text,
+            "speaker": None,
+            "timestamp": [[raw_text, int(start_time * 1000), int(end_time * 1000)]],
+        })
+        all_segments.append({"start": start_time, "end": end_time, "text": raw_text})
+
+    print(f"[ASR/MiMo] Transcription complete: {len(all_sentence_info)} segments")
+
+    return {
+        "text": " ".join(full_text_parts),
+        "sentence_info": all_sentence_info,
+        "segments": all_segments,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Unified ASR entry
+# ─────────────────────────────────────────────────────────────────────────────
+
 def transcribe_audio(
     audio_path: str,
     backend: Optional[str] = None,
@@ -569,6 +851,28 @@ def transcribe_audio(
         api_key = litellm_api_key or getattr(config, 'AUDIO_LITELLM_API_KEY', None)
         api_base = litellm_api_base or getattr(config, 'AUDIO_LITELLM_BASE_URL', None)
         lang = language or getattr(config, 'ASR_LANGUAGE', None)
+
+        # 路由：MiMo → 原生 input_audio 协议
+        _model_lower = model.lower()
+        if "mimo" in _model_lower:
+            return _transcribe_mimo(
+                audio_path, model, api_key, api_base, lang,
+                max_segment_size_mb=litellm_max_segment_mb,
+                batch_size=litellm_batch_size,
+                debug_dir=litellm_debug_dir,
+            )
+
+        # 路由：Qwen3-Omni-Captioner → 原生 input_audio 协议
+        if "qwen3-omni" in _model_lower or "qwen3_omni" in _model_lower:
+            from src.audio.qwen_audio_api import call_qwen_audio_batch
+            return _transcribe_qwen(
+                audio_path, model, api_key, api_base, lang,
+                max_segment_size_mb=litellm_max_segment_mb,
+                batch_size=litellm_batch_size,
+                debug_dir=litellm_debug_dir,
+            )
+
+        # 回退：旧 litellm 模型
         return _transcribe_litellm(
             audio_path, model, api_key, lang, api_base,
             max_segment_size_mb=litellm_max_segment_mb,

@@ -17,9 +17,9 @@ import os
 # ------------------ UI Remembered Inputs ------------------ #
 # These are saved automatically by the app when you change sidebar fields.
 
-VIDEO_PATH = ""
-AUDIO_PATH = ""
-INSTRUCTION = ""
+VIDEO_PATH = "resource/video/IMG_5747.MOV"
+AUDIO_PATH = "resource/audio/40SMQ.mp3"
+INSTRUCTION = "温馨家庭出行，欢快的车内互动场景，15秒卡点短片"
 SRT_PATH = ""
 
 
@@ -59,7 +59,7 @@ VIDEO_SAVE_DEBUG_FRAMES = False
 SHOT_DETECTION_FPS = 2.0
 # Sampling FPS specifically for shot detection (independent from VIDEO_FPS).
 
-VIDEO_TYPE = "film"
+VIDEO_TYPE = "vlog"
 # Global video type: "film" or "vlog".
 # Note: local_run.py overrides this with CLI --type.
 
@@ -126,7 +126,7 @@ ASR_BACKEND = "litellm"
 # - Local: lower cost/offline, speed depends on hardware
 # - Cloud: easier setup, but incurs API cost
 
-ASR_LANGUAGE = "English"
+ASR_LANGUAGE = "zh"
 # Recognition language. Example values: "English", "Chinese", "en", "zh".
 # Set None for auto-detection.
 
@@ -137,7 +137,7 @@ ASR_LANGUAGE = "English"
 ASR_DEVICE = "cuda:0" if __import__('torch').cuda.is_available() else "cpu"
 # Device for local ASR. Uses cuda:0 when available, otherwise cpu.
 
-ASR_WHISPER_CPP_MODEL = "base.en"
+ASR_WHISPER_CPP_MODEL = "base"  # "base" 支持中文，"base.en" 只支持英文
 # whisper.cpp model name or local ggml model path (e.g., "base.en", "large-v3").
 
 ASR_WHISPER_CPP_N_THREADS = 8
@@ -176,13 +176,13 @@ SCENE_PROMPT_TYPE = VIDEO_TYPE
 VIDEO_ANALYSIS_MODEL_MAX_TOKEN = 16384 
 # Max output token count for the video analysis model.
 
-VIDEO_ANALYSIS_MODEL = ""
+VIDEO_ANALYSIS_MODEL = "openai/doubao-seed-2.0-lite"
 # Video semantic analysis model name (called via OpenAI-compatible endpoint).
 
-VIDEO_ANALYSIS_ENDPOINT = ""  
+VIDEO_ANALYSIS_ENDPOINT = "https://ark.cn-beijing.volces.com/api/plan/v3"
 # API base URL for the video analysis model.
 
-VIDEO_ANALYSIS_API_KEY = ""
+VIDEO_ANALYSIS_API_KEY = "ark-3af8e5e6-6310-4667-8df7-80dc54d3b9d1-6ba71"
 # API key for the video analysis model.
 
 CAPTION_BATCH_SIZE = 64
@@ -196,13 +196,13 @@ SCENE_ANALYSIS_MIN_FRAMES = 6
 # ------------------ Audio Model ------------------ #
 # Analyzes musical beat/energy/structure and outputs editing keypoints.
 
-AUDIO_LITELLM_MODEL = ""
+AUDIO_LITELLM_MODEL = "openai/mimo-v2.5"
 # Cloud model used for audio captioning and structure analysis.
 
-AUDIO_LITELLM_API_KEY = ""
+AUDIO_LITELLM_API_KEY = "sk-cbyrrsm7m0gdfxv5jy0bnlguchomnttmx5mccgxgp8b5dnhs"
 # API key for the audio model.
 
-AUDIO_LITELLM_BASE_URL = ""
+AUDIO_LITELLM_BASE_URL = "https://api.xiaomimimo.com/v1"
 # API base URL for the audio model.
 
 AUDIO_DETECTION_METHODS = ["downbeat", "pitch", "mel_energy"]
@@ -276,10 +276,10 @@ AUDIO_SILENCE_THRESHOLD_DB = -45.0
 # Segments below this level are treated as too quiet and filtered.
 
 # ----- Audio segment duration constraints (frequently tuned) -----
-AUDIO_MIN_SEGMENT_DURATION = 0.1
-# Minimum segment duration (seconds). Smaller values create faster cuts.
+AUDIO_MIN_SEGMENT_DURATION = 1.8
+# Minimum segment duration (seconds). 调高到 0.5 避免 MiMo 对超短片段返回 "can't hear"
 
-AUDIO_MAX_SEGMENT_DURATION = 2.0
+AUDIO_MAX_SEGMENT_DURATION = 3.8
 # Maximum segment duration (seconds). Larger values create slower pacing.
 
 # ----- Music structure analysis (Level-1) -----
@@ -295,7 +295,9 @@ AUDIO_USE_STAGE1_SECTIONS = True
 AUDIO_SECTION_MIN_INTERVAL = AUDIO_MIN_SEGMENT_DURATION
 # Global minimum keypoint interval across sections.
 
-AUDIO_TOTAL_SHOTS = 200
+AUDIO_TOTAL_SHOTS = 50
+# 目标关键点总数。减小数值 → 段落更长 → MiMo 识别率更高。
+# 原值 200 时 90s 音乐每段仅 0.45s，MiMo 成功率 ~29%。若改为 35 后每段 ~2.6s，成功率明显提升。
 # Target total shot count, allocated proportionally by sections.
 # For quick debugging, try reducing this to 30~80.
 
@@ -307,7 +309,7 @@ AUDIO_WEIGHT_MEL_ENERGY = 1.0
 # Defaults use equal weighting.
 
 # ----- Keypoint caption analysis (Level-2) -----
-AUDIO_BATCH_SIZE = 8
+AUDIO_BATCH_SIZE = 3
 # Batch size for parallel audio-segment inference.
 # Larger values increase throughput but use more resources.
 
@@ -328,8 +330,8 @@ AGENT_RATE_LIMIT_BACKOFF_BASE = 1.0
 AGENT_RATE_LIMIT_MAX_BACKOFF = 8.0
 # Backoff timing (seconds) when rate limits occur.
 
-AUDIO_SEGMENT_MIN_DURATION_SEC = 5.0
-AUDIO_SEGMENT_MAX_DURATION_SEC = 15.0
+AUDIO_SEGMENT_MIN_DURATION_SEC = 10.0
+AUDIO_SEGMENT_MAX_DURATION_SEC = 20.0
 # Allowed music-span duration range for short-video planning.
 
 AUDIO_SEGMENT_SELECTION_MAX_RETRIES = 3
@@ -341,16 +343,24 @@ AUDIO_SEGMENT_TIME_TOLERANCE_SEC = 0.25
 ENABLE_TRIM_SHOT_CHARACTER_ANALYSIS = True
 # Enable VLM character analysis during trim_shot.
 
-CORE_MAX_FRAMES = 60
+CORE_MAX_FRAMES = 30
 # Maximum sampled frames per clip for core + reviewer analysis.
 
-AGENT_LITELLM_URL = ""
+VLM_FACE_MAX_FRAMES = 24
+# Maximum frames sampled during VLM face quality check.
+# Can be lower than CORE_MAX_FRAMES since face detection only needs ~2-3 FPS.
+
+EDITOR_MAX_ITERATIONS = 10
+# Maximum Agent loop iterations per shot for the EditorCoreAgent.
+# The model typically converges in 5-8 rounds; 10 provides ample headroom.
+
+AGENT_LITELLM_URL = "https://api.minimaxi.com/v1"
 # API base URL for the agent LLM.
 
-AGENT_LITELLM_API_KEY = ""
+AGENT_LITELLM_API_KEY = "sk-cp-o8mlZAnSazt9JSTJdqy2zC7gkBZ0HKIfJMZdw2wMc89uH6yhMuueVAWO19VF3FOGFdl1ir9DQSWZCEiEcz8Dj5pElRJq9D9DswKorsPdmbihpTdTnIpbjg8"
 # API key for the agent LLM.
 
-AGENT_LITELLM_MODEL = ""
+AGENT_LITELLM_MODEL = "openai/MiniMax-M2.7"
 # Primary model for the agent.
 
 PARALLEL_SHOT_ENABLED = True
@@ -383,7 +393,7 @@ FACE_QUALITY_CHECK_METHOD = "vlm"
 
 # ------------------ Protagonist Presence Constraints ------------------ #
 
-MAIN_CHARACTER_NAME = ""
+MAIN_CHARACTER_NAME = "Tree"
 # Main character / target subject name (comma-separated for multiple roles).
 # This is one of the highest-impact parameters in object mode.
 

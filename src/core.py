@@ -48,6 +48,38 @@ LEGACY_TOOL_NAME_MAP = {
 
 _THREAD_VIDEO_READERS = threading.local()
 
+# ── fine_grained_shot_trimming result cache ──
+# Key: (video_path, time_range) → result string
+# Avoids redundant VLM calls when the Agent re-analyzes the same clip.
+_TRIM_SHOT_CACHE = {}  # OrderedDict analogue via insertion order (Python 3.7+)
+_TRIM_SHOT_CACHE_MAX = 50
+
+
+def clear_trim_shot_cache():
+    """Clear the fine_grained_shot_trimming result cache."""
+    _TRIM_SHOT_CACHE.clear()
+
+
+def _get_trim_shot_cache(video_path: str, time_range: str) -> str | None:
+    """Return cached result or None."""
+    key = (video_path, time_range)
+    result = _TRIM_SHOT_CACHE.get(key)
+    if result is not None:
+        # Touch: re-insert to maintain LRU-ish ordering (dict preserves insertion order)
+        del _TRIM_SHOT_CACHE[key]
+        _TRIM_SHOT_CACHE[key] = result
+    return result
+
+
+def _set_trim_shot_cache(video_path: str, time_range: str, result: str):
+    """Store result in cache, evicting oldest entry if at capacity."""
+    key = (video_path, time_range)
+    if len(_TRIM_SHOT_CACHE) >= _TRIM_SHOT_CACHE_MAX:
+        # Evict the oldest entry
+        oldest = next(iter(_TRIM_SHOT_CACHE))
+        del _TRIM_SHOT_CACHE[oldest]
+    _TRIM_SHOT_CACHE[key] = result
+
 
 def _get_thread_video_reader(video_path: str):
     if not video_path:
@@ -542,6 +574,13 @@ def fine_grained_shot_trimming(
     clip_start_time = convert_seconds_to_hhmmss(start_sec)
     clip_end_time = convert_seconds_to_hhmmss(end_sec)
 
+    # ── Check cache to avoid redundant VLM calls ──
+    if frame_path:
+        cached = _get_trim_shot_cache(frame_path, time_range)
+        if cached is not None:
+            print(f"🔁 [Cache] Reusing cached trim_shot result for {time_range}")
+            return cached
+
     subtitles_context = _extract_subtitles_in_range(transcript_path, start_sec, end_sec)
     
     # Prepare messages for VIDEO_ANALYSIS_MODEL
@@ -779,7 +818,11 @@ def fine_grained_shot_trimming(
                                 f"Scenes may be incomplete or improperly segmented. Consider calling trim_shot with a different time range."
                             )
 
-                    return json.dumps(result, indent=4, ensure_ascii=False)
+                    result_json = json.dumps(result, indent=4, ensure_ascii=False)
+                    # Cache the successful result
+                    if frame_path:
+                        _set_trim_shot_cache(frame_path, time_range, result_json)
+                    return result_json
                 
             except json.JSONDecodeError as e:
                 print(f"❌ [Error] JSON decode error for time range {time_range}: {e}")
@@ -1264,7 +1307,7 @@ class EditorCoreAgent:
                             face_check_method = 'vlm'
 
                         print("🎬 Using VLM face quality check method...")
-                        face_check, protagonist_frame_data = self.reviewer.check_face_quality_vlm(
+                        check_result = self.reviewer.check_face_quality_vlm(
                             video_path=args.get("video_path", ""),
                             time_range=time_range,
                             main_character_name=getattr(config, 'MAIN_CHARACTER_NAME', 'the main character'),
@@ -1272,6 +1315,13 @@ class EditorCoreAgent:
                             min_box_size=getattr(config, 'VLM_MIN_BOX_SIZE', 50),
                             return_frame_data=True,
                         )
+
+                        # check_face_quality_vlm returns str on error, tuple[str, list] on success
+                        if isinstance(check_result, str):
+                            face_check = check_result
+                            protagonist_frame_data = []
+                        else:
+                            face_check, protagonist_frame_data = check_result
 
                         # Store for debugging/trace
                         self.current_shot_context["face_quality"] = face_check
@@ -1540,6 +1590,7 @@ class EditorCoreAgent:
         self.current_shot_context = {}
         self.last_commit_result = None
         self.last_commit_raw = None
+        clear_trim_shot_cache()
         self.reviewer = None
         self.video_reader = None
         _clear_thread_video_reader()

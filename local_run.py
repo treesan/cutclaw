@@ -37,8 +37,20 @@ def parse_config_overrides(unknown_args):
                 # Auto-detect type based on existing config value or infer from string
                 if hasattr(config, param_name):
                     original_value = getattr(config, param_name)
-                    # Preserve original type
-                    if isinstance(original_value, bool):
+                    # Preserve original type (handle None by inferring from string)
+                    if original_value is None:
+                        # None default → infer type from value string
+                        try:
+                            if '.' in value_str:
+                                value = float(value_str)
+                            else:
+                                value = int(value_str)
+                        except ValueError:
+                            if value_str.lower() in ('true', 'false', 'yes', 'no'):
+                                value = value_str.lower() in ('true', 'yes')
+                            else:
+                                value = value_str
+                    elif isinstance(original_value, bool):
                         value = value_str.lower() in ('true', '1', 'yes')
                     elif isinstance(original_value, int):
                         value = int(value_str)
@@ -47,7 +59,7 @@ def parse_config_overrides(unknown_args):
                     else:
                         value = value_str
                 else:
-                    # Infer type from string
+                    # Infer type from string (new param)
                     try:
                         if '.' in value_str:
                             value = float(value_str)
@@ -72,7 +84,7 @@ def parse_config_overrides(unknown_args):
 def main():
     parser = argparse.ArgumentParser(description="Run VideoCaptioningAgent on a video.")
     parser.add_argument("--Video_Path", help="The URL of the video to process.", default="Dataset/Video/Movie/La_La_Land.mkv")
-    parser.add_argument("--Audio_Path", help="The URL of the video to process.", default="Dataset/Audio/Norman_fucking_rockwell.mp3")
+    parser.add_argument("--Audio_Path", help="The URL of the video to process (optional: skip for analysis-only mode).", default="")
     parser.add_argument("--Instruction", help="The Instruction to cutting the video.", default="Mia and Sebastian's relationship evolves through sweet to break moments.")
     parser.add_argument("--instruction_type", help="Type of instruction: 'object' for Object-centric or 'narrative' for Narrative-driven", default="object", choices=["object", "narrative"])
     parser.add_argument("--type", help="film or vlog", default="film")
@@ -93,7 +105,7 @@ def main():
     instruction_type = args.instruction_type
 
     video_id = os.path.splitext(os.path.basename(Video_Path))[0].replace('.', '_').replace(' ', '_')
-    audio_id = os.path.splitext(os.path.basename(Audio_Path))[0].replace('.', '_').replace(' ', '_')
+    audio_id = os.path.splitext(os.path.basename(Audio_Path))[0].replace('.', '_').replace(' ', '_') if Audio_Path else "no_audio"
 
     # Generate a safe filename from instruction
     import re
@@ -128,9 +140,9 @@ def main():
     scenes_output = os.path.join(scenes_dir, "scene_0.json")
     scene_summaries_dir = os.path.join(config.VIDEO_DATABASE_FOLDER, 'Video', video_id, "captions", "scene_summaries_video")
 
-    # Audio-related paths
+    # Audio-related paths (only if Audio_Path provided; used as flag for analysis-only mode)
     audio_captions_dir = os.path.join(config.VIDEO_DATABASE_FOLDER, 'Audio', audio_id, "captions")
-    audio_caption_file = os.path.join(audio_captions_dir, "captions.json")
+    audio_caption_file = os.path.join(audio_captions_dir, "captions.json") if Audio_Path else None
 
     # Output paths (include instruction type and instruction ID for different editing tasks)
     shot_plan_output_path = os.path.join(
@@ -151,7 +163,7 @@ def main():
     print(f"\n{'='*80}")
     print(f"🎬 Starting VideoCuttingAgent Pipeline")
     print(f"📽️  Video: {Video_Path}")
-    print(f"🎵 Audio: {Audio_Path}")
+    print(f"🎵 Audio: {Audio_Path if Audio_Path else '(none - analysis-only mode)'}")
     print(f"📝 Instruction: {Instruction}")
     print(f"{'='*80}\n")
 
@@ -383,15 +395,23 @@ def main():
     # Launch threads
     thread_a = threading.Thread(target=run_asr_and_character_id, name="ASR-CharID",    daemon=False)
     thread_b = threading.Thread(target=run_video_captioning,     name="VideoCaptions", daemon=False)
-    thread_c = threading.Thread(target=run_audio_analysis,       name="AudioAnalysis", daemon=False)
 
     thread_a.start()
     thread_b.start()
-    thread_c.start()
+
+    if Audio_Path:
+        print("[main] 🎵 Audio file provided, starting audio analysis...")
+        thread_c = threading.Thread(target=run_audio_analysis, name="AudioAnalysis", daemon=False)
+        thread_c.start()
+    else:
+        print("[main] 🎵 No Audio_Path provided → skipping audio analysis (analysis-only mode)")
+        # Set audio_done flag so downstream checks work correctly
+        thread_c = None
 
     thread_a.join()
     thread_b.join()
-    thread_c.join()
+    if thread_c:
+        thread_c.join()
 
     if thread_errors:
         for name, err in thread_errors.items():
@@ -448,7 +468,6 @@ def main():
         print(f"✅ Shot plan generated successfully in {stage_times['screenwriter']:.1f}s!")
         print(f"💾 Output saved to: {shot_plan_output_path}")
         print(f"{'='*80}\n")
-w
     # Step 6: Run EditorCoreAgent to select video clips based on shot plan
     # Check if we have all required files for core agent
     if os.path.exists(scene_summaries_dir) and os.path.exists(audio_caption_file) and os.path.exists(shot_plan_output_path):
@@ -515,8 +534,10 @@ w
         print("❌ Cannot run EditorCoreAgent - missing required files:")
         if not os.path.exists(scene_summaries_dir):
             print(f"  ❌ Scene summaries directory not found at {scene_summaries_dir}")
-        if not os.path.exists(audio_caption_file):
+        if audio_caption_file and not os.path.exists(audio_caption_file):
             print(f"  ❌ Audio caption file not found at {audio_caption_file}")
+        if not audio_caption_file:
+            print(f"  ℹ️  Audio not provided (analysis-only mode) - skipped")
         if not os.path.exists(shot_plan_output_path):
             print(f"  ❌ Shot plan file not found at {shot_plan_output_path}")
         print("="*80 + "\n")

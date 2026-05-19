@@ -1567,6 +1567,12 @@ def main():
         print(f"  Ending extension: {ending_duration:.2f}s")
         print(f"  Audio crop start: {audio_start_time:.2f}s")
         print(f"  Audio crop duration: {audio_duration:.2f}s")
+    # Auto-resolve font: if hook dialogue has CJK characters, use a system CJK font
+    hook_text = hook_dialogue_text or ""
+    resolved_font = _resolve_drawtext_font(args.dialogue_font, text=hook_text)
+    if resolved_font != args.dialogue_font:
+        print(f"Font auto-resolved: {args.dialogue_font} -> {resolved_font}")
+
     success = render_video_ffmpeg(
         video_path=args.video,
         clips=clips,
@@ -1585,7 +1591,7 @@ def main():
         video_width=video_width,
         video_height=video_height,
         visualize_detections=args.visualize_detections,
-        dialogue_font_file=args.dialogue_font,
+        dialogue_font_file=resolved_font,
         dialogue_font_size=args.dialogue_font_size,
         dialogue_font_color=args.dialogue_font_color,
         dialogue_box_color=args.dialogue_box_color,
@@ -1606,6 +1612,54 @@ def main():
     else:
         print("\nFailed to render video")
         return 1
+
+
+def _detect_cjk(text: str) -> bool:
+    """Check if text contains CJK characters (Chinese/Japanese/Korean)."""
+    import unicodedata
+    for ch in text:
+        cp = ord(ch)
+        if (0x4E00 <= cp <= 0x9FFF) or (0x3400 <= cp <= 0x4DBF) or (0xF900 <= cp <= 0xFAFF):
+            return True
+        name = unicodedata.name(ch, '')
+        if 'CJK' in name or 'KANGXI' in name:
+            return True
+    return False
+
+
+def _resolve_drawtext_font(dialogue_font_file, text: str = "") -> str:
+    """
+    Resolve the best available font for drawtext.
+    Falls back to system CJK fonts when text contains Chinese characters.
+    """
+    CJK_FONTS = [
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/STHeiti Medium.ttc",
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+    ]
+    DEJAVU = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+    # When CJK text is detected, prefer system CJK fonts over the explicit font.
+    # Many downloaded/ext fonts (e.g. Pulp Fiction) don't support Chinese characters.
+    if _detect_cjk(text):
+        for p in CJK_FONTS:
+            if os.path.exists(p):
+                return p
+
+    # Non-CJK text: use explicit font first if it exists
+    if dialogue_font_file and os.path.exists(dialogue_font_file):
+        return dialogue_font_file
+
+    if os.path.exists(DEJAVU):
+        return DEJAVU
+    # macOS fallback
+    if os.path.exists("/System/Library/Fonts/Helvetica.ttc"):
+        return "/System/Library/Fonts/Helvetica.ttc"
+    if os.path.exists("/System/Library/Fonts/HelveticaNeue.ttc"):
+        return "/System/Library/Fonts/HelveticaNeue.ttc"
+    return DEJAVU
 
 
 if __name__ == '__main__':

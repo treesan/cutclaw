@@ -364,7 +364,7 @@ class ReviewerAgent:
             frame_results = []
             verbose_frame_log = bool(getattr(config, "VLM_FACE_LOG_EACH_FRAME", False))
 
-            max_frames = int(getattr(config, "CORE_MAX_FRAMES", getattr(config, "TRIM_SHOT_MAX_FRAMES", 240)))
+            max_frames = int(getattr(config, "VLM_FACE_MAX_FRAMES", 24))
             vr = _get_thread_video_reader(video_path)
             if vr is None:
                 return "❌ Error: Unable to initialize video reader."
@@ -372,6 +372,13 @@ class ReviewerAgent:
             frame_indices = self._compute_frame_indices(start_sec, end_sec, video_fps, max_frames=max_frames)
             if not frame_indices:
                 return f"❌ Error: No frames to process in the specified time range."
+            # Clamp frame indices to valid range (fix: decord reader may have fewer frames)
+            num_frames = len(vr)
+            frame_indices = [idx for idx in frame_indices if idx < num_frames]
+            if not frame_indices:
+                return f"❌ Error: All computed frame indices exceed video length ({num_frames} frames)."
+            if verbose_frame_log:
+                print(f"🎞️  [Reviewer: VLM] {len(frame_indices)} in-bounds frames (video: {num_frames} total)")
 
             if verbose_frame_log:
                 print(f"🎞️  [Reviewer: VLM] Decoding video; processing {len(frame_indices)} frames...")
