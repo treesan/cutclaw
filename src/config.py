@@ -17,9 +17,9 @@ import os
 # ------------------ UI Remembered Inputs ------------------ #
 # These are saved automatically by the app when you change sidebar fields.
 
-VIDEO_PATH = "resource/video/IMG_5747.MOV"
-AUDIO_PATH = "resource/audio/40SMQ.mp3"
-INSTRUCTION = "温馨家庭出行，欢快的车内互动场景，15秒卡点短片"
+VIDEO_PATH = ""
+AUDIO_PATH = ""
+INSTRUCTION = ""
 SRT_PATH = ""
 
 
@@ -393,8 +393,9 @@ FACE_QUALITY_CHECK_METHOD = "vlm"
 
 # ------------------ Protagonist Presence Constraints ------------------ #
 
-MAIN_CHARACTER_NAME = "Tree"
+MAIN_CHARACTER_NAME = os.path.basename(os.path.expanduser("~")).capitalize()
 # Main character / target subject name (comma-separated for multiple roles).
+# Auto-detected from system home directory (e.g. /Users/tree -> "Tree").
 # This is one of the highest-impact parameters in object mode.
 
 MIN_PROTAGONIST_RATIO = 0.7
