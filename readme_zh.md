@@ -6,7 +6,8 @@
   <img src="asset/Cutclaw_light.png" alt="CutClaw teaser" width="50%" />
 </picture>
 
-## 🦞CutClaw: 基于音乐同步的智能长视频剪辑系统
+## 🦞CutClaw-Batch： 面向批量长视频的多智能体协作音乐同步剪辑系统
+
 
 **🎬 你的个人剪辑师——将数小时素材一键打造成电影级蒙太奇。**
 
@@ -31,10 +32,6 @@
 </div>
 
 ---
-
-<p align="center">
-  <video src="https://github.com/user-attachments/assets/d3abb7b8-0503-4433-b255-d3367f1506c0" controls width="80%"></video>
-</p>
 
 ## 💡 概述
 
@@ -121,48 +118,7 @@ CutClaw 是一个面向长视频素材与音乐的端到端自动剪辑系统。
 
 
 ## 🖼️ 效果展示
-
-<table width="100%">
-<tr>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/6e5d6ce8-2fd6-4acf-92a4-620784d56bca" controls width="100%"></video>
-</td>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/5fa41312-786b-4f63-afe3-abedf7e03e05" controls width="100%"></video>
-</td>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/024e6fad-b154-4864-80fe-601e9e9b56c0" controls width="100%"></video>
-</td>
-</tr>
-</table>
-
-<table width="100%">
-<tr>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/f87c7755-f777-4802-9f59-ab851a4b7881" controls width="100%"></video>
-</td>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/0dde3dc0-440b-4e18-82b2-970a1ee11fa5" controls width="100%"></video>
-</td>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/68f635d7-446e-4f3c-b8ad-a0d0baed9e7b" controls width="100%"></video>
-</td>
-</tr>
-</table>
-
-<table width="100%">
-<tr>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/1c55d0df-5811-432b-a6e8-9458e102dd96" controls width="100%"></video>
-</td>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/05183151-c4c5-455d-97bf-3cf6f4c6de72" controls width="100%"></video>
-</td>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/427ecd8b-c3ff-471c-bd39-d64fd76dfc79" controls width="100%"></video>
-</td>
-</tr>
-</table>
+……
 
 ----
 
@@ -303,6 +259,16 @@ python render/render_video.py \
   year={2026}
 }
 ``` 
+
+---
+
+## 📜 开源协议与来源声明
+
+本项目是 [GVCLab/CutClaw](https://github.com/GVCLab/CutClaw) 的**衍生作品**。原始项目是由北京交通大学、大湾区大学、腾讯 ARC Lab 的 Shifang Zhao、Yihan Hu、Ying Shan、Yunchao Wei、Xiaodong Cun 等作者完成的学术研究项目。
+
+- 原始代码库及研究成果版权归 GVCLab 及其作者所有。
+- [@treesan](https://github.com/treesan) 新增的功能、修改和扩展以 **MIT 协议**发布（参见 [LICENSE](LICENSE)）。
+- 如在研究中使用本作品，请引用原始 [CutClaw 论文](https://arxiv.org/abs/2603.29664)。
 
 ---
 

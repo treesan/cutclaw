@@ -6,7 +6,7 @@
   <img src="asset/Cutclaw_light.png" alt="CutClaw teaser" width="50%" />
 </picture>
 
-## 🦞CutClaw: Agentic Hours-Long Video Editing via Music Synchronization
+## 🦞CutClaw-Batch: Agentic Batch Long-Form Video Editing System with Music Synchronization
 
 #### <a href='https://zzsf11.github.io/'>Shifang Zhao</a> · <a href='https://scholar.google.com/citations?hl=zh-CN&user=UP2IgWIAAAAJ'>Yihan Hu</a> · <a href='https://scholar.google.com/citations?user=4oXBp9UAAAAJ&hl=zh-CN'>Ying Shan</a> · <a href='https://scholar.google.com/citations?user=qL9Csv0AAAAJ&hl=zh-CN'>Yunchao Wei</a> · <a href='http://vinthony.github.io/'>Xiaodong Cun</a> 
 ###### Beijing Jiaotong University · GVC Lab, Great Bay University · Tencent ARC Lab
@@ -33,10 +33,6 @@
 </div>
 
 ---
-
-<p align="center">
-  <video src="https://github.com/user-attachments/assets/d3abb7b8-0503-4433-b255-d3367f1506c0" controls width="80%"></video>
-</p>
 
 ## 💡 Overview
 
@@ -123,49 +119,7 @@ Extracts musical beats and energy signals to build rhythm-aware cuts that perfec
 
 
 ## 🖼️ Gallery（remember to turn on the audio）
-
-<table width="100%">
-<tr>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/6e5d6ce8-2fd6-4acf-92a4-620784d56bca" controls width="100%"></video>
-</td>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/5fa41312-786b-4f63-afe3-abedf7e03e05" controls width="100%"></video>
-</td>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/024e6fad-b154-4864-80fe-601e9e9b56c0" controls width="100%"></video>
-</td>
-</tr>
-</table>
-
-<table width="100%">
-<tr>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/f87c7755-f777-4802-9f59-ab851a4b7881" controls width="100%"></video>
-</td>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/0dde3dc0-440b-4e18-82b2-970a1ee11fa5" controls width="100%"></video>
-</td>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/68f635d7-446e-4f3c-b8ad-a0d0baed9e7b" controls width="100%"></video>
-</td>
-</tr>
-</table>
-
-<table width="100%">
-<tr>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/1c55d0df-5811-432b-a6e8-9458e102dd96" controls width="100%"></video>
-</td>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/05183151-c4c5-455d-97bf-3cf6f4c6de72" controls width="100%"></video>
-</td>
-<td align="center" width="33%">
-  <video src="https://github.com/user-attachments/assets/427ecd8b-c3ff-471c-bd39-d64fd76dfc79" controls width="100%"></video>
-</td>
-</tr>
-</table>
-
+……
 ----
 
 ## 🚀 Quick Start
@@ -307,6 +261,16 @@ If you find CutClaw useful for your research, welcome to cite our work using the
   year={2026}
 }
 ``` 
+
+---
+
+## 📜 License & Attribution
+
+This project is a **derivative work** of [GVCLab/CutClaw](https://github.com/GVCLab/CutClaw), the original academic research project by Shifang Zhao, Yihan Hu, Ying Shan, Yunchao Wei, and Xiaodong Cun from Beijing Jiaotong University, Great Bay University, and Tencent ARC Lab.
+
+- The original codebase and research are (c) GVCLab and its authors.
+- New features, modifications, and extensions by [@treesan](https://github.com/treesan) are released under the **MIT License** (see [LICENSE](LICENSE)).
+- Please cite the original [CutClaw paper](https://arxiv.org/abs/2603.29664) if you use this work in your research.
 
 ---
 
