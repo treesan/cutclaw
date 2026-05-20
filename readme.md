@@ -28,7 +28,7 @@
 	<a href="https://github.com/GVCLab/CutClaw"><img src="https://img.shields.io/github/stars/GVCLab/CutClaw?style=social"></a>
 </p>
 
-[Overview](#-overview) • [Roadmap](#-roadmap) • [Features](#-key-features) • [Gallery](#️-gallery) • [Quick Start](#-quick-start) • [Troubleshooting](#️-troubleshooting) • [Citation](#-citation) • [Star History](#-star-history)
+[Overview](#-overview) • [Roadmap](#-roadmap) • [Features](#-key-features) • [Gallery](#️-gallery) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [Troubleshooting](#️-troubleshooting) • [Citation](#-citation) • [Star History](#-star-history)
 
 </div>
 
@@ -236,7 +236,154 @@ python render/render_video.py \
 
 ---
 
+## 🚀 CLI Quick Reference
 
+All commands must be run from the CutClaw project directory with the correct conda environment:
+
+```bash
+cd ~/Develop/CutClaw
+conda activate CutClaw
+```
+
+### 1. Video Preprocessing 
+
+Analyze video without BGM (used when BGM is not yet selected):
+
+```bash
+python local_run.py \
+  --Video_Path "resource/video/sample.MOV" \
+  --Instruction "video analysis only" \
+  --type vlog \
+  --preprocess-only
+```
+
+**Output:** `Output/Video/{VIDEO_ID}/captions/scene_summaries_video/` + `shot_scenes.txt`
+
+### 2. BGM Rhythm Analysis 
+
+Analyze BGM structure (after the content strategist has downloaded the BGM):
+
+```bash
+python -c "
+from src.audio.audio_caption_madmom import caption_audio_with_madmom_segments
+
+caption_audio_with_madmom_segments(
+    audio_path='resource/audio/bgm.mp3',
+    output_path='Output/Audio/{BGM_ID}/captions/captions.json',
+)
+"
+```
+
+**Output:** `Output/Audio/{BGM_ID}/captions/captions.json` (BPM, structure segments, keypoints)
+
+### 3. Combined Video + BGM Preprocessing
+
+Run both video and BGM analysis together (preprocess only, no creative generation):
+
+```bash
+python local_run.py \
+  --Video_Path "resource/video/sample.MOV" \
+  --Audio_Path "resource/audio/bgm.mp3" \
+  --Instruction "preprocess only" \
+  --type vlog \
+  --preprocess-only
+```
+
+### 4. BGM Download (Pixabay)
+
+Search and download BGM from Pixabay (free commercial use, no API key required):
+
+```bash
+# Search
+python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
+  search "upbeat travel vlog" --max-duration 120
+
+# Download
+python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
+  download "upbeat travel vlog" \
+  -o ~/Develop/CutClaw/resource/audio/bgm.mp3
+```
+
+### 5. Generate Shot Plan (shot_plan)
+
+Based on scene analysis + BGM structure, the content strategist generates a shot plan:
+
+```bash
+python src/planner_agent.py \
+  --video "resource/video/sample.MOV" \
+  --scene-summaries "Output/Video/{VIDEO_ID}/captions/scene_summaries_video" \
+  --audio-captions "Output/Audio/{BGM_ID}/captions/captions.json" \
+  --subtitle "Output/Video/{VIDEO_ID}/subtitles_with_characters.srt" \
+  --bgm-name "bgm.mp3" \
+  --output-dir "Output/Output/{VIDEO_ID}_{BGM_ID}" \
+  --strategy "fast cuts in first 4s, warm interaction in middle 6s, emotional climax in last 5s" \
+  --action shot_plan
+```
+
+### 6. Generate Shot Point 
+
+Generate precise clip timestamps from the confirmed shot plan:
+
+```bash
+python src/short_video_editor.py \
+  --video "resource/video/sample.MOV" \
+  --shot-plan "Output/Output/{VIDEO_ID}_{BGM_ID}/shot_plan_xxx.json" \
+  --scene-summaries "Output/Video/{VIDEO_ID}/captions/scene_summaries_video" \
+  --audio-captions "Output/Audio/{BGM_ID}/captions/captions.json" \
+  --scene-cuts "Output/Video/{VIDEO_ID}/frames/shot_scenes.txt" \
+  --instruction "warm family outing, 15s beat-sync short video" \
+  --shot-point-context "prioritize shots with children laughing" \
+  --action shot_point
+```
+
+### 7. Preview Shot Point (dry-run)
+
+Preview the generated composition without rendering:
+
+```bash
+python src/short_video_editor.py ... --action dry_run
+```
+
+### 8. Render Final Video 
+
+Once shot points are confirmed, render the final video:
+
+```bash
+python src/short_video_editor.py \
+  --video "resource/video/sample.MOV" \
+  --shot-plan "Output/Output/{VIDEO_ID}_{BGM_ID}/shot_plan_xxx.json" \
+  --scene-summaries "Output/Video/{VIDEO_ID}/captions/scene_summaries_video" \
+  --audio-captions "Output/Audio/{BGM_ID}/captions/captions.json" \
+  --action render
+```
+
+### 9. Key Config Overrides
+
+Common runtime configuration overrides:
+
+```bash
+python local_run.py ... \
+  --config.VIDEO_FPS 2 \
+  --config.AUDIO_TOTAL_SHOTS 50 \
+  --config.MAIN_CHARACTER_NAME "Tree" \
+  --config.MIN_PROTAGONIST_RATIO 0.7 \
+  --config.AUDIO_MIN_SEGMENT_DURATION 1.8 \
+  --config.AUDIO_MAX_SEGMENT_DURATION 3.8
+```
+
+### Output Files
+
+| Operation | Output Path | Description |
+|-----------|-------------|-------------|
+| Video Analysis | `Output/Video/{ID}/captions/scene_summaries_video/` | Per-scene descriptions |
+| Scene Cuts | `Output/Video/{ID}/frames/shot_scenes.txt` | Shot boundaries |
+| BGM Analysis | `Output/Audio/{ID}/captions/captions.json` | Rhythm structure + captions |
+| ASR Subtitles | `Output/Video/{ID}/subtitles.srt` | Speech-to-text |
+| Shot Plan | `Output/Output/{ID}/{BGM}/shot_plan_xxx.json` | Creative plan |
+| Shot Point | `Output/Output/{ID}/{BGM}/shot_point_xxx.json` | Precise timestamps |
+| Final Video | `Output/Output/{ID}/{BGM}/output_9x16.mp4` | Rendered video |
+
+---
 
 ## 🛠️ Troubleshooting
 
