@@ -176,10 +176,10 @@ SCENE_PROMPT_TYPE = VIDEO_TYPE
 VIDEO_ANALYSIS_MODEL_MAX_TOKEN = 16384 
 # Max output token count for the video analysis model.
 
-VIDEO_ANALYSIS_MODEL = "openai/doubao-seed-2.0-lite"
+VIDEO_ANALYSIS_MODEL = "openai/modelname"
 # Video semantic analysis model name (called via OpenAI-compatible endpoint).
 
-VIDEO_ANALYSIS_ENDPOINT = "https://ark.cn-beijing.volces.com/api/plan/v3"
+VIDEO_ANALYSIS_ENDPOINT = ""
 # API base URL for the video analysis model.
 
 VIDEO_ANALYSIS_API_KEY = os.environ.get("VIDEO_ANALYSIS_API_KEY", "")
@@ -196,13 +196,13 @@ SCENE_ANALYSIS_MIN_FRAMES = 6
 # ------------------ Audio Model ------------------ #
 # Analyzes musical beat/energy/structure and outputs editing keypoints.
 
-AUDIO_LITELLM_MODEL = "openai/mimo-v2.5"
+AUDIO_LITELLM_MODEL = "openai/modelname"
 # Cloud model used for audio captioning and structure analysis.
 
 AUDIO_LITELLM_API_KEY = os.environ.get("AUDIO_LITELLM_API_KEY", "")
 # API key for the audio model. Set as env var AUDIO_LITELLM_API_KEY.
 
-AUDIO_LITELLM_BASE_URL = "https://api.xiaomimimo.com/v1"
+AUDIO_LITELLM_BASE_URL = ""
 # API base URL for the audio model.
 
 AUDIO_DETECTION_METHODS = ["downbeat", "pitch", "mel_energy"]
@@ -277,7 +277,7 @@ AUDIO_SILENCE_THRESHOLD_DB = -45.0
 
 # ----- Audio segment duration constraints (frequently tuned) -----
 AUDIO_MIN_SEGMENT_DURATION = 1.8
-# Minimum segment duration (seconds). 调高到 0.5 避免 MiMo 对超短片段返回 "can't hear"
+# Minimum segment duration (seconds). 调高到 0.5 避免 LLM 对超短片段返回 "can't hear"
 
 AUDIO_MAX_SEGMENT_DURATION = 3.8
 # Maximum segment duration (seconds). Larger values create slower pacing.
@@ -295,9 +295,9 @@ AUDIO_USE_STAGE1_SECTIONS = True
 AUDIO_SECTION_MIN_INTERVAL = AUDIO_MIN_SEGMENT_DURATION
 # Global minimum keypoint interval across sections.
 
-AUDIO_TOTAL_SHOTS = 50
-# 目标关键点总数。减小数值 → 段落更长 → MiMo 识别率更高。
-# 原值 200 时 90s 音乐每段仅 0.45s，MiMo 成功率 ~29%。若改为 35 后每段 ~2.6s，成功率明显提升。
+AUDIO_TOTAL_SHOTS = 30
+# 目标关键点总数。减小数值 → 段落更长 → LLM 识别率更高。
+# 原值 200 时 90s 音乐每段仅 0.45s，LLM 成功率 ~29%。若改为 35 后每段 ~2.6s，成功率明显提升。
 # Target total shot count, allocated proportionally by sections.
 # For quick debugging, try reducing this to 30~80.
 
@@ -354,14 +354,14 @@ EDITOR_MAX_ITERATIONS = 10
 # Maximum Agent loop iterations per shot for the EditorCoreAgent.
 # The model typically converges in 5-8 rounds; 10 provides ample headroom.
 
-AGENT_LITELLM_URL = "https://api.minimaxi.com/v1"
+AGENT_LITELLM_URL = ""
 # API base URL for the agent LLM.
 
 AGENT_LITELLM_API_KEY = os.environ.get("AGENT_LITELLM_API_KEY", "")
 # API key for the agent LLM. Set as env var AGENT_LITELLM_API_KEY.
 
-AGENT_LITELLM_MODEL = "openai/MiniMax-M2.7"
-# Primary model for the agent.
+AGENT_LITELLM_MODEL = "openai/modelname"
+# Primary model for the agent.DirectShotSelector 使用的模型
 
 # ───────────────────────────────────────────────────────────────────────────────
 # DirectShotSelector (直接推理替代 EditorCoreAgent Agent 循环)
@@ -369,9 +369,6 @@ AGENT_LITELLM_MODEL = "openai/MiniMax-M2.7"
 
 DIRECT_SHOT_SELECTOR_ENABLED = True
 # 主开关：True 用 DirectShotSelector 直推，False 用原有的 EditorCoreAgent 循环。
-
-DIRECT_SHOT_SELECTOR_MODEL = "openai/MiniMax-M2.7"
-# DirectShotSelector 使用的模型。默认复用 AGENT_LITELLM_MODEL。
 
 DIRECT_SHOT_SELECTOR_MAX_TOKENS = 8192
 # 直推输出的最大 token 数。
@@ -453,5 +450,22 @@ SCENE_EXPLORATION_RANGE = 3
 # Extra exploration range around recommended scenes (±N scenes).
 # Example: if recommended scene is 8 and range=3, search scene 5~11.
 # Set to 0 to strictly limit selection to recommended scenes only.
+
+
+# ───────────────────────────────────────────────────────────────────────────────
+# 本地覆写层（config_my.py）
+# 如果存在 config_my.py，其中的值会覆盖上方所有默认值。
+#
+# 优先级链：config_my.py > os.environ.get() > config.py 默认值
+#
+# 使用方式：
+#   cp src/config_my.example.py src/config_my.py
+#   然后填入你的 API Key 和自定义配置。
+#   config_my.py 已在 .gitignore 中，不会被提交。
+# ───────────────────────────────────────────────────────────────────────────────
+try:
+    from .config_my import *  # type: ignore[import-untyped]  # noqa: F401, F403
+except (ImportError, ModuleNotFoundError):
+    pass
 
 

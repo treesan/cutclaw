@@ -49,3 +49,5 @@ CLAUDE.md
 .env
 *.env.local
 *.env.*
+# IDE
+.idea/

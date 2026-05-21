@@ -370,10 +370,17 @@ def extract_all_clips(
         print(f"Scaling bounding boxes from {detection_width}x{detection_height} to {video_width}x{video_height} (scale: {scale_x:.3f}x, {scale_y:.3f}y)")
 
     # Sort by section_idx, then shot_idx to ensure correct order
+    print(f"Total shots loaded: {len(shot_data)}")
     sorted_data = sorted(shot_data, key=lambda x: (x.get('section_idx', 0), x.get('shot_idx', 0)))
+    print(f"After sorting: {len(sorted_data)} shots")
 
-    for shot in sorted_data:
+    for i, shot in enumerate(sorted_data):
+        print(f"Checking shot {i}: {shot}")
         if shot.get('status') != 'success':
+            print(f"Skipping shot {i}: status={shot.get('status')} != success")
+            continue
+        if 'start_sec' not in shot or 'end_sec' not in shot:
+            print(f"Skipping shot {i}: missing start_sec or end_sec")
             continue
 
         section_idx = shot.get('section_idx', -1)

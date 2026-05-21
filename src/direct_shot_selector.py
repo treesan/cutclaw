@@ -26,7 +26,7 @@ def _call_litellm(messages: list, max_tokens: int = None, temperature: float = 0
     """调用 LiteLLM，返回 content 或 None。"""
     import litellm
     kwargs = dict(
-        model=getattr(config, "DIRECT_SHOT_SELECTOR_MODEL", config.AGENT_LITELLM_MODEL),
+        model= config.AGENT_LITELLM_MODEL,
         messages=messages,
         max_tokens=max_tokens or getattr(config, "DIRECT_SHOT_SELECTOR_MAX_TOKENS", 8192),
         api_key=config.AGENT_LITELLM_API_KEY,

@@ -27,7 +27,7 @@
     <a href="readme_zh.md"><img src="https://img.shields.io/badge/中文版-1a1a2e?style=for-the-badge"></a>
 </p>
 
-[概述](#-概述) • [路线图](#-路线图) • [核心功能](#-核心功能) • [效果展示](#️-效果展示) • [快速开始](#-快速开始) • [常见问题](#️-常见问题) • [引用](#-引用) • [Star History](#-star-history)
+[概述](#-概述) • [路线图](#-路线图) • [核心功能](#-核心功能) • [效果展示](#️-效果展示) • [快速开始](#-快速开始) • [CLI 速查](#-cli-速查) • [常见问题](#️-常见问题) • [引用](#-引用) • [Star History](#-star-history)
 
 </div>
 
@@ -235,7 +235,170 @@ python render/render_video.py \
 
 ---
 
+## 🚀 CLI 速查
 
+所有命令必须在 CutClaw 项目目录下，并激活正确的 conda 环境后执行：
+
+```bash
+cd ~/Develop/CutClaw
+conda activate CutClaw
+```
+
+### 1. 视频素材解析（Video Preprocessing）
+
+在 BGM 未到位时，先跑视频解析：
+
+```bash
+python local_run.py \
+  --Video_Path "resource/video/素材名.MOV" \
+  --Instruction "仅做视频解析" \
+  --type vlog \
+  --preprocess-only
+```
+
+**产出：** `Output/Video/{素材ID}/captions/scene_summaries_video/` + `shot_scenes.txt`
+
+### 2. BGM 节奏分析
+
+锦书下载 BGM 后，先跑节奏分析：
+
+```bash
+python -c "
+from src.audio.audio_caption_madmom import caption_audio_with_madmom_segments
+
+caption_audio_with_madmom_segments(
+    audio_path='resource/audio/bgm.mp3',
+    output_path='Output/Audio/{BGM_ID}/captions/captions.json',
+)
+"
+```
+
+> ⚠️ 该文件不支持 `--audio`/`--output` CLI 参数，必须用上面的 Python 内联方式调用。
+
+**产出：** `Output/Audio/{BGM_ID}/captions/captions.json`（BPM、结构分段、关键点时间戳）
+
+### 3. 视频 + BGM 联合解析
+
+BGM 已到位时，一次性跑全解析：
+
+```bash
+python local_run.py \
+  --Video_Path "resource/video/素材名.MOV" \
+  --Audio_Path "resource/audio/bgm.mp3" \
+  --Instruction "仅做解析" \
+  --type vlog \
+  --preprocess-only
+```
+
+### 4. BGM 下载（Pixabay）
+
+使用 Pixabay 搜索下载免费商用 BGM（无需 API Key）：
+
+```bash
+# 搜索
+python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
+  search "upbeat travel vlog" --max-duration 120
+
+# 下载
+python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
+  download "upbeat travel vlog" \
+  -o ~/Develop/CutClaw/resource/audio/bgm.mp3
+```
+
+### 5. 生成 Shot Plan（分镜方案）
+
+基于场景分析 + BGM 结构，内容策略者（锦书）生成 shot_plan：
+
+```bash
+python src/planner_agent.py \
+  --video "resource/video/素材名.MOV" \
+  --scene-summaries "Output/Video/{素材ID}/captions/scene_summaries_video" \
+  --audio-captions "Output/Audio/{BGM_ID}/captions/captions.json" \
+  --subtitle "Output/Video/{素材ID}/subtitles_with_characters.srt" \
+  --bgm-name "bgm.mp3" \
+  --output-dir "Output/Output/{素材ID}_{BGM_ID}" \
+  --strategy "前4秒快切，中间6秒温馨互动，后5秒情感高潮" \
+  --action shot_plan
+```
+
+### 6. 生成 Shot Point（剪辑点）
+
+基于已确认的 shot_plan，生成精确的镜头入点出点：
+
+```bash
+python src/short_video_editor.py \
+  --video "resource/video/素材名.MOV" \
+  --shot-plan "Output/Output/{素材ID}_{BGM_ID}/shot_plan_xxx.json" \
+  --scene-summaries "Output/Video/{素材ID}/captions/scene_summaries_video" \
+  --audio-captions "Output/Audio/{BGM_ID}/captions/captions.json" \
+  --scene-cuts "Output/Video/{素材ID}/frames/shot_scenes.txt" \
+  --instruction "温馨家庭出行，15秒卡点短片" \
+  --shot-point-context "优先保留孩子大笑的镜头" \
+  --action shot_point
+```
+
+### 7. 预览 Shot Point（dry-run）
+
+不渲染，预览 shot_point 分配效果供确认：
+
+```bash
+python src/short_video_editor.py ... --action dry_run
+```
+
+### 8. 渲染成片
+
+确认后执行最终渲染：
+
+```bash
+python src/short_video_editor.py \
+  --video "resource/video/素材名.MOV" \
+  --shot-plan "Output/Output/{素材ID}_{BGM_ID}/shot_plan_xxx.json" \
+  --scene-summaries "Output/Video/{素材ID}/captions/scene_summaries_video" \
+  --audio-captions "Output/Audio/{BGM_ID}/captions/captions.json" \
+  --action render
+```
+
+或直接调用渲染脚本：
+
+```bash
+python render/render_video.py \
+  --shot-json "Output/.../shot_point_xxx.json" \
+  --shot-plan "Output/.../shot_plan_xxx.json" \
+  --video "resource/video/素材名.MOV" \
+  --audio "resource/audio/bgm.mp3" \
+  --output "Output/Output/素材名/output_9x16.mp4" \
+  --crop-ratio "9:16" \
+  --no-labels \
+  --render-hook-dialogue
+```
+
+### 9. 常用配置覆盖
+
+运行时覆盖 `src/config.py` 中的参数：
+
+```bash
+python local_run.py ... \
+  --config.VIDEO_FPS 2 \
+  --config.AUDIO_TOTAL_SHOTS 50 \
+  --config.MAIN_CHARACTER_NAME "Tree" \
+  --config.MIN_PROTAGONIST_RATIO 0.7 \
+  --config.AUDIO_MIN_SEGMENT_DURATION 1.8 \
+  --config.AUDIO_MAX_SEGMENT_DURATION 3.8
+```
+
+### 产出文件一览
+
+| 操作 | 产出路径 | 说明 |
+|------|---------|------|
+| 视频解析 | `Output/Video/{ID}/captions/scene_summaries_video/` | 逐场景描述 |
+| 场景切分 | `Output/Video/{ID}/frames/shot_scenes.txt` | 镜头边界时间 |
+| BGM 分析 | `Output/Audio/{ID}/captions/captions.json` | 节奏结构 + 每段 caption |
+| ASR 字幕 | `Output/Video/{ID}/subtitles.srt` | 语音转文字 |
+| Shot Plan | `Output/Output/{ID}/{BGM}/shot_plan_xxx.json` | 创意方案 |
+| Shot Point | `Output/Output/{ID}/{BGM}/shot_point_xxx.json` | 精确时间戳 |
+| 成片 | `Output/Output/{ID}/{BGM}/output_9x16.mp4` | 渲染视频 |
+
+---
 
 ## 🛠️ 常见问题
 
