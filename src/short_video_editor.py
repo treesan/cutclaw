@@ -13,10 +13,10 @@ ShortVideoEditor — 短影 ✂️ 剪辑师引擎
     from src.short_video_editor import ShortVideoEditor
 
     editor = ShortVideoEditor(
-        video_path="resource/video/IMG_5747.MOV",
-        shot_plan_path="Output/.../shot_plan_xxx.json",
-        scene_summary_dir="Output/Video/.../scene_summaries_video",
-        audio_caption_path="Output/Audio/.../captions.json",
+        video_path="path/to/video.MOV",
+        shot_plan_path="path/to/shot_plan.json",
+        scene_summary_dir="path/to/scene_summaries",
+        audio_caption_path="path/to/captions.json",
     )
 
     # 生成剪辑点

@@ -376,7 +376,8 @@ def extract_all_clips(
 
     for i, shot in enumerate(sorted_data):
         print(f"Checking shot {i}: {shot}")
-        if shot.get('status') != 'success':
+        # DirectShotSelector doesn't add status field, assume success if start/end exists
+        if 'status' in shot and shot.get('status') != 'success':
             print(f"Skipping shot {i}: status={shot.get('status')} != success")
             continue
         if 'start_sec' not in shot or 'end_sec' not in shot:
@@ -415,9 +416,45 @@ def extract_all_clips(
                         'bounding_box': scaled_bbox
                     })
 
-        for clip in shot.get('clips', []):
-            start_sec = hhmmss_to_seconds(clip['start'])
-            end_sec = hhmmss_to_seconds(clip['end'])
+        # Check if shot itself is already a clip (DirectShotSelector format)
+        # or if it contains nested clips (original EditorCoreAgent format)
+        if 'clips' in shot and len(shot.get('clips', [])) > 0:
+            # Original format: multiple clips per shot
+            for clip in shot.get('clips', []):
+                start_sec = hhmmss_to_seconds(clip['start'])
+                end_sec = hhmmss_to_seconds(clip['end'])
+
+                # Adjust for scene cuts if cut_points provided
+                original_start = start_sec
+                original_end = end_sec
+                if cut_points:
+                    start_sec, end_sec = adjust_clip_for_scene_cuts(start_sec, end_sec, cut_points)
+
+                # Convert back to string format if adjusted
+                def sec_to_hhmmss(sec: float) -> str:
+                    h = int(sec // 3600)
+                    m = int((sec % 3600) // 60)
+                    s = sec % 60
+                    return f"{h:02d}:{m:02d}:{s:06.3f}"
+
+                all_clips.append({
+                    'section_idx': section_idx,
+                    'shot_idx': shot_idx,
+                    'start_sec': start_sec,
+                    'end_sec': end_sec,
+                    'duration': end_sec - start_sec,
+                    'start_str': sec_to_hhmmss(start_sec),
+                    'end_str': sec_to_hhmmss(end_sec),
+                    'original_start': original_start,
+                    'original_end': original_end,
+                    'adjusted': (start_sec != original_start or end_sec != original_end),
+                    'crop_center': crop_center,  # Add crop center information
+                    'scaled_detections': scaled_detections  # Add scaled detection info for visualization
+                })
+        else:
+            # DirectShotSelector format: shot is already a single clip
+            start_sec = float(shot['start_sec'])
+            end_sec = float(shot['end_sec'])
 
             # Adjust for scene cuts if cut_points provided
             original_start = start_sec
@@ -1382,6 +1419,9 @@ def main():
     print(f"Loading shot data from: {args.shot_json}")
     with open(args.shot_json, 'r', encoding='utf-8') as f:
         shot_data = json.load(f)
+    # Support both formats: direct list or object with 'shots' field
+    if isinstance(shot_data, dict) and 'shots' in shot_data:
+        shot_data = shot_data['shots']
 
     # Parse scene cut points if provided
     cut_points = None

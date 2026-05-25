@@ -148,7 +148,7 @@ def _load_scene_summaries_raw(scene_folder: str) -> list[dict]:
                 return hhmmss_to_seconds(str(v), fps=config.VIDEO_FPS)
 
         results.append({
-            "scene_index": int(data.get("scene_id", _sn(fn))),
+            "scene_index": int(data.get("scene_id", _sn(fn)).replace("scene_", "")),
             "start_sec": _to_seconds(time_range.get("start_seconds", 0)),
             "end_sec": _to_seconds(time_range.get("end_seconds", 0)),
             "content": summary.get("narrative", ""),
@@ -197,20 +197,34 @@ def _compress_scene_summaries(scenes: list[dict], max_chars: int = 6000) -> str:
 def _compress_shot_plan(shot_plan: dict) -> str:
     """压缩 shot_plan 为紧凑文本。"""
     parts = []
-    for si, sec in enumerate(shot_plan.get("video_structure", [])):
-        sec_name = sec.get("section_name", f"Section {si}")
+    # 兼容两种格式：根 sections 或者 video_structure
+    sections = shot_plan.get("video_structure", [])
+    if not sections:
+        sections = shot_plan.get("sections", [])
+    for si, sec in enumerate(sections):
+        sec_name = sec.get("name", f"Section {si}")
         parts.append(f"[Section {si}: {sec_name}]")
-        shots = (sec.get("shot_plan") or {}).get("shots", [])
-        for sj, shot in enumerate(shots):
-            related = shot.get("related_scene", [])
-            rs = ",".join(str(r) for r in related) if isinstance(related, list) else str(related)
-            content = shot.get("content", "")
-            if len(content) > 60:
-                content = content[:57] + "..."
+        if "shots" in sec:
+            # 锦书格式：每个 section 直接定义 shot 数量和描述
+            num_shots = sec.get("shots", 0)
+            dur = sec.get("duration_sec", 0)
+            desc = sec.get("description", "")
             parts.append(
-                f"  Shot{sj:2d}: dur={shot.get('time_duration', 0):5.1f}s  "
-                f"scene=[{rs}]  emotion={shot.get('emotion', '-')[:12]:12s}  {content}"
+                f"  Total {num_shots} shots, total duration {dur:.1f}s: {desc}"
             )
+        else:
+            # 原有格式：sec.shot_plan.shots
+            shots = (sec.get("shot_plan") or {}).get("shots", [])
+            for sj, shot in enumerate(shots):
+                related = shot.get("related_scene", [])
+                rs = ",".join(str(r) for r in related) if isinstance(related, list) else str(related)
+                content = shot.get("content", "")
+                if len(content) > 60:
+                    content = content[:57] + "..."
+                parts.append(
+                    f"  Shot{sj:2d}: dur={shot.get('time_duration', 0):5.1f}s  "
+                    f"scene=[{rs}]  emotion={shot.get('emotion', '-')[:12]:12s}  {content}"
+                )
     return "\n".join(parts)
 
 
@@ -352,9 +366,18 @@ class DirectShotSelector:
     def _count_total_shots(self) -> int:
         """统计 shot_plan 中所有 shot 的个数。"""
         total = 0
-        for sec in self.shot_plan.get("video_structure", []):
-            shots = (sec.get("shot_plan") or {}).get("shots", [])
-            total += len(shots)
+        # 兼容两种格式：根 sections 或者 video_structure
+        sections = self.shot_plan.get("video_structure", [])
+        if not sections:
+            sections = self.shot_plan.get("sections", [])
+        for sec in sections:
+            if "shots" in sec:
+                # 锦书格式：每个 section 直接有 shots 字段表示镜头数
+                total += sec.get("shots", 0)
+            else:
+                # 原有格式：sec.shot_plan.shots
+                shots = (sec.get("shot_plan") or {}).get("shots", [])
+                total += len(shots)
         return total
 
     def _build_input(self) -> dict:
