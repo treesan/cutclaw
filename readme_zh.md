@@ -372,7 +372,57 @@ python render/render_video.py \
   --render-hook-dialogue
 ```
 
-### 9. 常用配置覆盖
+### 9. 批量剪辑（多片段项目）
+
+当项目包含多个源视频（如一次旅行有 40+ 个大疆航拍片段）时，使用 `--project` 命令进行批量处理，为跨片段剪辑做准备。
+
+**从视频目录创建项目：**
+
+```bash
+python local_run.py --project create \
+  --video-dir "/path/to/your/videos" \
+  --project-name "我的旅行"
+```
+
+扫描目录中所有 `.mp4`/`.mov` 文件，通过 ffprobe 提取元数据，并按录制日期自动分组。
+
+**审查源素材一致性：**
+
+```bash
+python local_run.py --project review-sources \
+  --project-path "Output/Projects/<项目ID>/project.json"
+```
+
+检查所有片段的编码、分辨率、帧率和色彩空间一致性，标记问题并报告渲染时是否需要归一化。
+
+**批量预处理所有片段：**
+
+```bash
+python local_run.py --project preprocess \
+  --project-path "Output/Projects/<项目ID>/project.json" \
+  --type vlog \
+  --max-workers 2
+```
+
+并行对每个片段执行镜头检测、描述生成、场景合并和场景分析。支持断点续跑——中断后重新执行相同命令会自动跳过已完成的片段。
+
+**构建全局素材索引：**
+
+```bash
+python local_run.py --project build-index \
+  --project-path "Output/Projects/<项目ID>/project.json"
+```
+
+将所有片段的场景描述汇总为扁平化的 `material_index.json`，供策划智能体在整个项目范围内选片。
+
+**查看项目状态：**
+
+```bash
+python local_run.py --project status \
+  --project-path "Output/Projects/<项目ID>/project.json"
+```
+
+### 10. 常用配置覆盖
 
 运行时覆盖 `src/config.py` 中的参数：
 
@@ -397,6 +447,16 @@ python local_run.py ... \
 | Shot Plan | `Output/Output/{ID}/{BGM}/shot_plan_xxx.json` | 创意方案 |
 | Shot Point | `Output/Output/{ID}/{BGM}/shot_point_xxx.json` | 精确时间戳 |
 | 成片 | `Output/Output/{ID}/{BGM}/output_9x16.mp4` | 渲染视频 |
+
+#### 批量剪辑产出
+
+| 操作 | 产出路径 | 说明 |
+|------|---------|------|
+| 项目 | `Output/Projects/{ID}/project.json` | 项目元数据 + 片段列表 |
+| 源素材审查 | `Output/Projects/{ID}/source_review.json` | 编码/分辨率/帧率审计 |
+| 片段预处理 | `Output/Projects/{ID}/Clips/{clip_id}/` | 逐片段场景分析 |
+| 断点 | `Output/Projects/{ID}/checkpoints/` | 可续跑的阶段状态 |
+| 素材索引 | `Output/Projects/{ID}/material_index.json` | 供策划使用的全局场景索引 |
 
 ---
 

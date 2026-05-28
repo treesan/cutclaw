@@ -357,7 +357,57 @@ python src/short_video_editor.py \
   --action render
 ```
 
-### 9. Key Config Overrides
+### 9. Batch Editing (Multi-Clip Project)
+
+For projects with multiple source clips (e.g. a trip with 40+ DJI drone videos), use the `--project` commands to batch-process all clips and prepare them for cross-clip editing.
+
+**Create a project from a video directory:**
+
+```bash
+python local_run.py --project create \
+  --video-dir "/path/to/your/videos" \
+  --project-name "My Trip"
+```
+
+This scans all `.mp4`/`.mov` files, extracts metadata via ffprobe, and groups clips by recording date.
+
+**Review source media consistency:**
+
+```bash
+python local_run.py --project review-sources \
+  --project-path "Output/Projects/<project_id>/project.json"
+```
+
+Checks codec, resolution, fps, and colorspace across all clips. Flags issues and reports whether normalization is needed during rendering.
+
+**Batch preprocess all clips:**
+
+```bash
+python local_run.py --project preprocess \
+  --project-path "Output/Projects/<project_id>/project.json" \
+  --type vlog \
+  --max-workers 2
+```
+
+Runs shot detection, captioning, scene merge, and scene analysis for every clip in parallel. Supports checkpoint-based resume — if interrupted, rerun the same command to skip completed clips.
+
+**Build global material index:**
+
+```bash
+python local_run.py --project build-index \
+  --project-path "Output/Projects/<project_id>/project.json"
+```
+
+Aggregates all clip scene summaries into a flat `material_index.json` for the planner agent to select shots across the entire project.
+
+**Check project status:**
+
+```bash
+python local_run.py --project status \
+  --project-path "Output/Projects/<project_id>/project.json"
+```
+
+### 10. Key Config Overrides
 
 Common runtime configuration overrides:
 
@@ -382,6 +432,16 @@ python local_run.py ... \
 | Shot Plan | `Output/Output/{ID}/{BGM}/shot_plan_xxx.json` | Creative plan |
 | Shot Point | `Output/Output/{ID}/{BGM}/shot_point_xxx.json` | Precise timestamps |
 | Final Video | `Output/Output/{ID}/{BGM}/output_9x16.mp4` | Rendered video |
+
+#### Batch Editing Outputs
+
+| Operation | Output Path | Description |
+|-----------|-------------|-------------|
+| Project | `Output/Projects/{ID}/project.json` | Project metadata + clip list |
+| Source Review | `Output/Projects/{ID}/source_review.json` | Codec/resolution/fps audit |
+| Clip Preprocess | `Output/Projects/{ID}/Clips/{clip_id}/` | Per-clip scene analysis |
+| Checkpoints | `Output/Projects/{ID}/checkpoints/` | Resumable stage state |
+| Material Index | `Output/Projects/{ID}/material_index.json` | Global scene index for planner |
 
 ---
 
