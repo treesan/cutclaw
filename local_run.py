@@ -81,6 +81,72 @@ def parse_config_overrides(unknown_args):
             print(f"⚠️ Warning: Unknown argument '{arg}' ignored")
             i += 1
 
+def _run_project_command(args):
+    """Handle --project subcommands for batch editing."""
+    from src.project.project import ProjectManager
+
+    if args.project == "create":
+        if not args.video_dir:
+            print("❌ --video-dir is required for 'create'")
+            return
+        print(f"📂 Creating project from: {args.video_dir}")
+        project = ProjectManager.create_from_directory(
+            video_dir=args.video_dir,
+            project_name=args.project_name or "",
+        )
+        print(f"\n✅ Project created: {project.metadata_path}")
+        print(ProjectManager.status_summary(project))
+
+    elif args.project == "status":
+        if not args.project_path:
+            print("❌ --project-path is required for 'status'")
+            return
+        project = ProjectManager.load(args.project_path)
+        print(ProjectManager.status_summary(project))
+
+    elif args.project == "review-sources":
+        if not args.project_path:
+            print("❌ --project-path is required for 'review-sources'")
+            return
+        project = ProjectManager.load(args.project_path)
+        from src.batch.source_media_review import SourceMediaReview
+        reviewer = SourceMediaReview()
+        report = reviewer.review_project(project)
+        print(reviewer.format_report(report))
+        report_path = os.path.join(project.output_dir, "source_review.json")
+        reviewer.save_report(report, report_path)
+        print(f"\n💾 Report saved to: {report_path}")
+
+    elif args.project == "preprocess":
+        if not args.project_path:
+            print("❌ --project-path is required for 'preprocess'")
+            return
+        project = ProjectManager.load(args.project_path)
+        from src.batch.batch_preprocess import BatchPreprocessor
+        video_type = getattr(args, "type", "vlog")
+        max_workers = getattr(args, "max_workers", 2) or 2
+        preprocessor = BatchPreprocessor(
+            project=project,
+            max_workers=max_workers,
+            video_type=video_type,
+            skip_existing=True,
+        )
+        preprocessor.run()
+
+    elif args.project == "build-index":
+        if not args.project_path:
+            print("❌ --project-path is required for 'build-index'")
+            return
+        project = ProjectManager.load(args.project_path)
+        from src.batch.material_index import build_material_index, save_material_index
+        print(f"📊 Building material index for {project.project_id}...")
+        index = build_material_index(project)
+        index_path = os.path.join(project.output_dir, "material_index.json")
+        save_material_index(index, index_path)
+        print(f"✅ Material index built: {index.total_scenes} scenes from {index.valid_clips} clips")
+        print(f"💾 Saved to: {index_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run VideoCaptioningAgent on a video.")
     parser.add_argument("--Video_Path", help="The URL of the video to process.", default="Dataset/Video/Movie/La_La_Land.mkv")
@@ -92,11 +158,24 @@ def main():
     parser.add_argument("--SRT_Path", type=str,
                         help="Path to existing SRT file. Skips ASR transcription; diarization still runs to assign speakers.")
 
+    # Batch project mode (new, incremental — does not affect existing flow)
+    parser.add_argument("--project", choices=["create", "status", "preprocess", "build-index", "review-sources"],
+                        help="Batch project subcommand. When set, runs project management instead of single-video pipeline.")
+    parser.add_argument("--project-path", type=str, help="Path to project.json for batch operations.")
+    parser.add_argument("--video-dir", type=str, help="Source video directory for 'create' command.")
+    parser.add_argument("--project-name", type=str, default="", help="Friendly project name (auto-derived from directory if omitted).")
+    parser.add_argument("--max-workers", type=int, default=2, help="Parallel workers for batch preprocess (default: 2).")
+
     # Parse known args and capture unknown args for config overrides
     args, unknown = parser.parse_known_args()
 
     # Apply config overrides
     parse_config_overrides(unknown)
+
+    # ── Route to batch project commands if --project is set ──
+    if args.project:
+        _run_project_command(args)
+        return
 
     config.VIDEO_TYPE = args.type
 
