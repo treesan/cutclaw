@@ -25,7 +25,7 @@
 	<a href="readme.md"><img src="https://img.shields.io/badge/English-1a1a2e"></a>
     <a href="readme_zh.md"><img src="https://img.shields.io/badge/中文版-1a1a2e"></a>
 	<a href="https://arxiv.org/abs/2603.29664"><img src="https://img.shields.io/badge/arXiv-paper-b31b1b.svg"></a>
-	<a href="https://github.com/GVCLab/CutClaw"><img src="https://img.shields.io/github/stars/GVCLab/CutClaw?style=social"></a>
+	<a href="https://github.com/treesan/cutclaw"><img src="https://img.shields.io/github/stars/treesan/cutclaw?style=social"></a>
 </p>
 
 [Overview](#-overview) • [Roadmap](#-roadmap) • [Features](#-key-features) • [Gallery](#️-gallery) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [Troubleshooting](#️-troubleshooting) • [Citation](#-citation) • [Star History](#-star-history)
@@ -127,8 +127,8 @@ Extracts musical beats and energy signals to build rhythm-aware cuts that perfec
 ### 1. Install
 
 ```bash
-git clone https://github.com/GVCLab/CutClaw.git
-cd CutClaw
+git clone https://github.com/treesan/cutclaw.git
+cd cutclaw
 conda create -n CutClaw python=3.12
 conda activate CutClaw
 pip install -r requirements.txt
@@ -241,7 +241,7 @@ python render/render_video.py \
 All commands must be run from the CutClaw project directory with the correct conda environment:
 
 ```bash
-cd ~/Develop/CutClaw
+cd CutClaw
 conda activate CutClaw
 ```
 
@@ -301,7 +301,7 @@ python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
 # Download
 python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
   download "upbeat travel vlog" \
-  -o ~/Develop/CutClaw/resource/audio/bgm.mp3
+  -o CutClaw/resource/audio/bgm.mp3
 ```
 
 ### 5. Generate Shot Plan (shot_plan)
@@ -484,7 +484,7 @@ This project is a **derivative work** of [GVCLab/CutClaw](https://github.com/GVC
 ## 📈 Star History
 
 <p align="center">
-  <a href="https://www.star-history.com/#GVCLab/CutClaw&Date">
-    <img src="https://api.star-history.com/svg?repos=GVCLab/CutClaw&type=Date" alt="Star History Chart" width="100%" />
+  <a href="https://www.star-history.com/#treesan/cutclaw&Date">
+    <img src="https://api.star-history.com/svg?repos=treesan/cutclaw&type=Date" alt="Star History Chart" width="100%" />
   </a>
 </p>

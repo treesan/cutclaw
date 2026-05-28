@@ -12,7 +12,7 @@
 **🎬 你的个人剪辑师——将数小时素材一键打造成电影级蒙太奇。**
 
 [![arXiv](https://img.shields.io/badge/arXiv-paper-b31b1b.svg)](https://arxiv.org/abs/2603.29664)
-[![GitHub Stars](https://img.shields.io/github/stars/GVCLab/CutClaw?style=social)](https://github.com/GVCLab/CutClaw)
+[![GitHub Stars](https://img.shields.io/github/stars/treesan/cutclaw?style=social)](https://github.com/treesan/cutclaw)
 
 <p align="center">
   <img src="https://img.shields.io/badge/🎞️_长视频处理-1f6feb?style=flat-square" alt="长视频处理" />
@@ -127,8 +127,8 @@ CutClaw 是一个面向长视频素材与音乐的端到端自动剪辑系统。
 ### 1. 安装
 
 ```bash
-git clone https://github.com/GVCLab/CutClaw.git
-cd CutClaw
+git clone https://github.com/treesan/cutclaw.git
+cd cutclaw
 conda create -n CutClaw python=3.12
 conda activate CutClaw
 pip install -r requirements.txt
@@ -240,7 +240,7 @@ python render/render_video.py \
 所有命令必须在 CutClaw 项目目录下，并激活正确的 conda 环境后执行：
 
 ```bash
-cd ~/Develop/CutClaw
+cd CutClaw
 conda activate CutClaw
 ```
 
@@ -302,7 +302,7 @@ python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
 # 下载
 python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
   download "upbeat travel vlog" \
-  -o ~/Develop/CutClaw/resource/audio/bgm.mp3
+  -o CutClaw/resource/audio/bgm.mp3
 ```
 
 ### 5. 生成 Shot Plan（分镜方案）
@@ -498,7 +498,7 @@ python local_run.py ... \
 ## 📈 Star History
 
 <p align="center">
-  <a href="https://www.star-history.com/#GVCLab/CutClaw&Date">
-    <img src="https://api.star-history.com/svg?repos=GVCLab/CutClaw&type=Date" alt="Star History Chart" width="100%" />
+  <a href="https://www.star-history.com/#treesan/cutclaw&Date">
+    <img src="https://api.star-history.com/svg?repos=treesan/cutclaw&type=Date" alt="Star History Chart" width="100%" />
   </a>
 </p>
