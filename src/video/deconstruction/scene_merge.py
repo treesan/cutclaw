@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+from typing import Optional
 
 from tqdm import tqdm
 import json
@@ -19,8 +21,44 @@ def _get_sentence_transformer():
     return _SentenceTransformer
 from src.utils.media_utils import natural_sort_key, hhmmss_to_seconds
 
+# --- Model path resolution ---
+_MODEL_ID = 'sentence-transformers/all-MiniLM-L6-v2'
+
+def _resolve_model_path(model_id: str = _MODEL_ID) -> str:
+    """
+    Resolve the sentence-transformers model path, checking local caches first:
+    1. ModelScope cache: ~/.cache/modelscope/hub/sentence-transformers/all-MiniLM-L6-v2
+    2. HuggingFace torch cache: ~/.cache/torch/sentence_transformers/all-MiniLM-L6-v2
+    3. Fallback to model_id string (sentence-transformers will download automatically)
+    """
+    home = Path.home()
+    # ModelScope cache layout
+    modelscope_path = home / '.cache' / 'modelscope' / 'hub' / 'sentence-transformers' / 'all-MiniLM-L6-v2'
+    if modelscope_path.exists():
+        print(f"✅ [SceneMerge] Found model in ModelScope cache: {modelscope_path}")
+        return str(modelscope_path)
+
+    # HuggingFace / torch sentence_transformers cache layout
+    hf_path = home / '.cache' / 'torch' / 'sentence_transformers' / 'all-MiniLM-L6-v2'
+    if hf_path.exists():
+        print(f"✅ [SceneMerge] Found model in HF cache: {hf_path}")
+        return str(hf_path)
+
+    # HuggingFace new cache layout (HF_HOME/hub)
+    hf_hub_path = home / '.cache' / 'huggingface' / 'hub' / 'models--sentence-transformers--all-MiniLM-L6-v2'
+    if hf_hub_path.exists():
+        print(f"✅ [SceneMerge] Found model in HF Hub cache: {hf_hub_path}")
+        return str(hf_hub_path)
+
+    # Fallback: let sentence-transformers handle download
+    print(f"ℹ️  [SceneMerge] No local cache found, will use model_id: {model_id}")
+    return model_id
+
+
 class OptimizedSceneSegmenter:
-    def __init__(self, model_name='/Users/tree/.cache/torch/sentence_transformers/all-MiniLM-L6-v2'):
+    def __init__(self, model_name: Optional[str] = None):
+        if model_name is None:
+            model_name = _resolve_model_path()
         print(f"🚀 [SceneMerge] Loading model ({model_name})...")
         ST = _get_sentence_transformer()
         self.encoder = ST(model_name)
