@@ -1,9 +1,9 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="asset/CutClaw_dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="asset/Cutclaw_light.png" />
-  <img src="asset/Cutclaw_light.png" alt="vcutclaw teaser" width="50%" />
+  <source media="(prefers-color-scheme: dark)" srcset="asset/CutClaw.png" />
+  <source media="(prefers-color-scheme: light)" srcset="asset/CutClaw.png" />
+  <img src="asset/CutClaw.png" alt="vcutclaw teaser" width="50%" />
 </picture>
 
 ## 🦞 vcutclaw：面向批量长视频的多智能体协作音乐同步剪辑系统

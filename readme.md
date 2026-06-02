@@ -1,9 +1,9 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="asset/CutClaw_dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="asset/CutClaw_light.png" />
-  <img src="asset/Cutclaw_light.png" alt="vcutclaw teaser" width="50%" />
+  <source media="(prefers-color-scheme: dark)" srcset="asset/CutClaw.png" />
+  <source media="(prefers-color-scheme: light)" srcset="asset/CutClaw.png" />
+  <img src="asset/CutClaw.png" alt="vcutclaw teaser" width="50%" />
 </picture>
 
 ## 🦞 vcutclaw: Agentic Batch Long-Form Video Editing System with Music Synchronization
@@ -60,7 +60,8 @@ It first deconstructs raw video/audio into structured captions, then uses a mult
   Allow users to specify which clips, time ranges, or subjects (people/landscapes) should receive more shots in the generated plan. For example: "keep more shots from clip DSC_8324 between 2-5s", "preserve more frames of the mountain landscape", or "prioritize shots with the main character". The web UI will support multi-clip selection with visual time range editors.
 - [ ] 📱 **JianYing Pro / CapCut Draft Export**  
   Generate JianYing Pro (剪映专业版) draft projects from vcutclaw's shot_plan/shot_point, enabling users to further refine edits in a professional NLE. Leverages the [jianying-editor-skill](https://github.com) API for draft creation, media import, and timeline assembly.
-
+- [ ] 🌐 **Set up an online service page**  
+  Build a web-based online service interface to lower the barrier to entry and improve deployment convenience.
 ---
 
 ## ✨ Key Features
