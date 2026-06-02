@@ -8,7 +8,7 @@
 
 ## 🦞 vcutclaw: Agentic Batch Long-Form Video Editing System with Music Synchronization
 
-**🎬 Your personal editor for turning hours of footage into cinematic montages.**
+**🎬 Your personal editor: turn a few clips into a cinematic montage, instantly.**
 
 <p align="center">
   <img src="https://img.shields.io/badge/🎞️_Hours--Long_Footage-1f6feb?style=flat-square" alt="Hours-Long Footage" />
@@ -22,7 +22,7 @@
 	<a href="readme.md"><img src="https://img.shields.io/badge/English-1a1a2e"></a>
     <a href="readme_zh.md"><img src="https://img.shields.io/badge/中文版-1a1a2e"></a>
 	<a href="https://arxiv.org/abs/2603.29664"><img src="https://img.shields.io/badge/arXiv-paper-b31b1b.svg"></a>
-	<a href="https://github.com/treesan/vcutclaw"><img src="https://img.shields.io/github/stars/treesan/vcutclaw?style=social"></a>
+	<a href="https://github.com/treesan/cutclaw"><img src="https://img.shields.io/github/stars/treesan/cutclaw?style=social"></a>
 </p>
 
 [Overview](#-overview) • [Roadmap](#-roadmap) • [Features](#-key-features) • [Gallery](#️-gallery) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [Troubleshooting](#️-troubleshooting) • [Citation](#-citation) • [Star History](#-star-history)
@@ -47,14 +47,10 @@ It first deconstructs raw video/audio into structured captions, then uses a mult
 
 ### Short-Term Goals
 
-> What we're building next for faster, cheaper, and more expressive video editing.
-
 - [ ] 🧩 **ARC-Chapter Integration**  
   Bring in [ARC-Chapter](https://github.com/TencentARC/ARC-Chapter) to reduce the cost of long-form footage deconstruction.
 - [ ] 💸 **Low-Cost Mode**  
   Add a budget-friendly mode that proactively reads only relevant footage instead of fully processing all source material.
-- [ ] 🎙️ **Talking-Head + Visual Mixing**  
-  Introduce hybrid editing logic that coordinates narration-driven clips with supporting visual footage.
 
 ### Long-Term Goals
 
@@ -64,8 +60,6 @@ It first deconstructs raw video/audio into structured captions, then uses a mult
   Allow users to specify which clips, time ranges, or subjects (people/landscapes) should receive more shots in the generated plan. For example: "keep more shots from clip DSC_8324 between 2-5s", "preserve more frames of the mountain landscape", or "prioritize shots with the main character". The web UI will support multi-clip selection with visual time range editors.
 - [ ] 📱 **JianYing Pro / CapCut Draft Export**  
   Generate JianYing Pro (剪映专业版) draft projects from vcutclaw's shot_plan/shot_point, enabling users to further refine edits in a professional NLE. Leverages the [jianying-editor-skill](https://github.com) API for draft creation, media import, and timeline assembly.
-- [ ] 🌐 **Online Service Interface**  
-  Build a web-based service interface for easier access and deployment.
 
 ---
 
@@ -124,8 +118,8 @@ Extracts musical beats and energy signals to build rhythm-aware cuts that perfec
 ### 1. Install
 
 ```bash
-git clone https://github.com/treesan/vcutclaw.git
-cd vcutclaw
+git clone https://github.com/treesan/cutclaw.git
+cd cutclaw
 conda create -n CutClaw python=3.12
 conda activate CutClaw
 pip install -r requirements.txt

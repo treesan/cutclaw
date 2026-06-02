@@ -8,10 +8,10 @@
 
 ## 🦞 vcutclaw：面向批量长视频的多智能体协作音乐同步剪辑系统
 
-**🎬 你的个人剪辑师——将数小时素材一键打造成电影级蒙太奇。**
+**🎬 你的个人剪辑师——将数个素材一键打造成电影级蒙太奇。**
 
 [![arXiv](https://img.shields.io/badge/arXiv-paper-b31b1b.svg)](https://arxiv.org/abs/2603.29664)
-[![GitHub Stars](https://img.shields.io/github/stars/treesan/vcutclaw?style=social)](https://github.com/treesan/vcutclaw)
+[![GitHub Stars](https://img.shields.io/github/stars/treesan/cutclaw?style=social)](https://github.com/treesan/cutclaw)
 
 <p align="center">
   <img src="https://img.shields.io/badge/🎞️_长视频处理-1f6feb?style=flat-square" alt="长视频处理" />
@@ -44,8 +44,6 @@ vcutclaw 是一个面向长视频素材与音乐的端到端自动剪辑系统�
 
 ## 🗺️ 路线图
 
-> 我们非常欢迎社区提出新的想法和 issue。如果您有建议，欢迎随时提交 issue。您的反馈将进入我们的未来计划，也会成为推动这个项目起飞的燃料。🔥
-
 ### 短期目标
 
 > 我们正在优先推进更快、更省、更具表现力的视频剪辑能力。
@@ -54,8 +52,6 @@ vcutclaw 是一个面向长视频素材与音乐的端到端自动剪辑系统�
   引入 [ARC-Chapter](https://github.com/TencentARC/ARC-Chapter)，进一步降低长视频素材拆解的成本。
 - [ ] 💸 **低成本模式**  
   增加预算友好的低成本模式，不再对全部素材做完整处理，而是主动读取更相关的素材片段。
-- [ ] 🎙️ **口播 + 画面混剪逻辑**  
-  加入口播驱动片段与辅助画面素材协同组织的混合剪辑逻辑。
 
 ### 长期目标
 
@@ -126,8 +122,8 @@ vcutclaw 是一个面向长视频素材与音乐的端到端自动剪辑系统�
 ### 1. 安装
 
 ```bash
-git clone https://github.com/treesan/vcutclaw.git
-cd vcutclaw
+git clone https://github.com/treesan/cutclaw.git
+cd cutclaw
 conda create -n CutClaw python=3.12
 conda activate CutClaw
 pip install -r requirements.txt
