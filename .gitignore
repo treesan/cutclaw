@@ -19,8 +19,6 @@ reports/
 *.wav
 output*
 .vscode/
-.CLAUDE.md
-CLAUDE.md
 .claude/
 .agents
 skills

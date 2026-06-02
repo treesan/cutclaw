@@ -3,16 +3,15 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="asset/CutClaw_dark.png" />
   <source media="(prefers-color-scheme: light)" srcset="asset/Cutclaw_light.png" />
-  <img src="asset/Cutclaw_light.png" alt="CutClaw teaser" width="50%" />
+  <img src="asset/Cutclaw_light.png" alt="vcutclaw teaser" width="50%" />
 </picture>
 
-## 🦞CutClaw-Batch： 面向批量长视频的多智能体协作音乐同步剪辑系统
-
+## 🦞 vcutclaw：面向批量长视频的多智能体协作音乐同步剪辑系统
 
 **🎬 你的个人剪辑师——将数小时素材一键打造成电影级蒙太奇。**
 
 [![arXiv](https://img.shields.io/badge/arXiv-paper-b31b1b.svg)](https://arxiv.org/abs/2603.29664)
-[![GitHub Stars](https://img.shields.io/github/stars/treesan/cutclaw?style=social)](https://github.com/treesan/cutclaw)
+[![GitHub Stars](https://img.shields.io/github/stars/treesan/vcutclaw?style=social)](https://github.com/treesan/vcutclaw)
 
 <p align="center">
   <img src="https://img.shields.io/badge/🎞️_长视频处理-1f6feb?style=flat-square" alt="长视频处理" />
@@ -35,7 +34,7 @@
 
 ## 💡 概述
 
-CutClaw 是一个面向长视频素材与音乐的端到端自动剪辑系统。
+vcutclaw 是一个面向长视频素材与音乐的端到端自动剪辑系统。
 
 它首先将原始视频和音频解析为结构化描述，再通过多智能体流水线完成镜头规划（`shot_plan`）、片段时间戳选取（`shot_point`）及质量验证，最终渲染输出成片。
 
@@ -60,12 +59,12 @@ CutClaw 是一个面向长视频素材与音乐的端到端自动剪辑系统。
 
 ### 长期目标
 
-> 这些方向会帮助 CutClaw 走向更完整的产品形态和更广泛的生态适配。
+> 这些方向会帮助 vcutclaw 走向更完整的产品形态和更广泛的生态适配。
 
-- [ ] ✍️ **升级 Playwriter**  
-  引入更丰富的剪辑模式与视觉叙事方法，增强整体编排能力。
-- [ ] 🔌 **适配 Claude Code MCP**  
-  让 CutClaw 能够更顺畅地接入 Claude Code MCP 工作流。
+- [ ] 🎯 **素材偏好指定系统**  
+  允许用户在生成分镜方案时指定素材偏好：某些片段多保留镜头、指定时间段（如 DSC_8324 的 2-5s 多保留）、指定人物或风景多保留镜头。Web 后管页面支持多视频选择 + 可视化时间段编辑器。
+- [ ] 📱 **剪映/CapCut 草稿导出**  
+  从 vcutclaw 的 shot_plan/shot_point 生成剪映专业版草稿项目，支持用户在专业 NLE 中进一步精修。基于 [jianying-editor-skill](https://github.com) API 实现草稿创建、素材导入、时间线组装。
 - [ ] 🌐 **建立在线服务页面**  
   构建网页化在线服务界面，降低使用门槛并提升部署便利性。
 
@@ -127,8 +126,8 @@ CutClaw 是一个面向长视频素材与音乐的端到端自动剪辑系统。
 ### 1. 安装
 
 ```bash
-git clone https://github.com/treesan/cutclaw.git
-cd cutclaw
+git clone https://github.com/treesan/vcutclaw.git
+cd vcutclaw
 conda create -n CutClaw python=3.12
 conda activate CutClaw
 pip install -r requirements.txt
@@ -237,10 +236,10 @@ python render/render_video.py \
 
 ## 🚀 CLI 速查
 
-所有命令必须在 CutClaw 项目目录下，并激活正确的 conda 环境后执行：
+所有命令必须在 vcutclaw 项目目录下，并激活正确的 conda 环境后执行：
 
 ```bash
-cd CutClaw
+cd vcutclaw
 conda activate CutClaw
 ```
 
@@ -302,7 +301,7 @@ python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
 # 下载
 python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
   download "upbeat travel vlog" \
-  -o CutClaw/resource/audio/bgm.mp3
+  -o vcutclaw/resource/audio/bgm.mp3
 ```
 
 ### 5. 生成 Shot Plan（分镜方案）
@@ -522,7 +521,7 @@ python local_run.py ... \
 
 ## ⭐ 引用
 
-如果 CutClaw 对您的研究有所帮助，欢迎引用我们的工作：
+如果 vcutclaw 对您的研究有所帮助，欢迎引用原始工作：
  ```bibtex
 @article{cutclaw,
   title={CutClaw: Agentic Hours-Long Video Editing via Music Synchronization},
@@ -547,7 +546,7 @@ python local_run.py ... \
 ## 📈 Star History
 
 <p align="center">
-  <a href="https://www.star-history.com/#treesan/cutclaw&Date">
-    <img src="https://api.star-history.com/svg?repos=treesan/cutclaw&type=Date" alt="Star History Chart" width="100%" />
+  <a href="https://www.star-history.com/#treesan/vcutclaw&Date">
+    <img src="https://api.star-history.com/svg?repos=treesan/vcutclaw&type=Date" alt="Star History Chart" width="100%" />
   </a>
 </p>

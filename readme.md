@@ -3,13 +3,10 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="asset/CutClaw_dark.png" />
   <source media="(prefers-color-scheme: light)" srcset="asset/CutClaw_light.png" />
-  <img src="asset/Cutclaw_light.png" alt="CutClaw teaser" width="50%" />
+  <img src="asset/Cutclaw_light.png" alt="vcutclaw teaser" width="50%" />
 </picture>
 
-## 🦞CutClaw-Batch: Agentic Batch Long-Form Video Editing System with Music Synchronization
-
-#### <a href='https://zzsf11.github.io/'>Shifang Zhao</a> · <a href='https://scholar.google.com/citations?hl=zh-CN&user=UP2IgWIAAAAJ'>Yihan Hu</a> · <a href='https://scholar.google.com/citations?user=4oXBp9UAAAAJ&hl=zh-CN'>Ying Shan</a> · <a href='https://scholar.google.com/citations?user=qL9Csv0AAAAJ&hl=zh-CN'>Yunchao Wei</a> · <a href='http://vinthony.github.io/'>Xiaodong Cun</a> 
-###### Beijing Jiaotong University · GVC Lab, Great Bay University · Tencent ARC Lab
+## 🦞 vcutclaw: Agentic Batch Long-Form Video Editing System with Music Synchronization
 
 **🎬 Your personal editor for turning hours of footage into cinematic montages.**
 
@@ -25,7 +22,7 @@
 	<a href="readme.md"><img src="https://img.shields.io/badge/English-1a1a2e"></a>
     <a href="readme_zh.md"><img src="https://img.shields.io/badge/中文版-1a1a2e"></a>
 	<a href="https://arxiv.org/abs/2603.29664"><img src="https://img.shields.io/badge/arXiv-paper-b31b1b.svg"></a>
-	<a href="https://github.com/treesan/cutclaw"><img src="https://img.shields.io/github/stars/treesan/cutclaw?style=social"></a>
+	<a href="https://github.com/treesan/vcutclaw"><img src="https://img.shields.io/github/stars/treesan/vcutclaw?style=social"></a>
 </p>
 
 [Overview](#-overview) • [Roadmap](#-roadmap) • [Features](#-key-features) • [Gallery](#️-gallery) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [Troubleshooting](#️-troubleshooting) • [Citation](#-citation) • [Star History](#-star-history)
@@ -36,7 +33,7 @@
 
 ## 💡 Overview
 
-CutClaw is an end-to-end editing system for long-form footage + music.
+vcutclaw is an end-to-end editing system for long-form footage + music.
 
 It first deconstructs raw video/audio into structured captions, then uses a multi-agent pipeline to plan shots (`shot_plan`), select clip timestamps (`shot_point`), and validate final quality before rendering.
 
@@ -61,12 +58,12 @@ It first deconstructs raw video/audio into structured captions, then uses a mult
 
 ### Long-Term Goals
 
-> Broader product and ecosystem directions for the next stage of CutClaw.
+> Broader product and ecosystem directions for the next stage of vcutclaw.
 
-- [ ] ✍️ **Playwriter Upgrade**  
-  Expand the Playwriter with richer editing patterns and more diverse visual storytelling methods.
-- [ ] 🔌 **Claude Code MCP Support**  
-  Adapt CutClaw to work smoothly within Claude Code MCP workflows.
+- [ ] 🎯 **Clip Preference System**  
+  Allow users to specify which clips, time ranges, or subjects (people/landscapes) should receive more shots in the generated plan. For example: "keep more shots from clip DSC_8324 between 2-5s", "preserve more frames of the mountain landscape", or "prioritize shots with the main character". The web UI will support multi-clip selection with visual time range editors.
+- [ ] 📱 **JianYing Pro / CapCut Draft Export**  
+  Generate JianYing Pro (剪映专业版) draft projects from vcutclaw's shot_plan/shot_point, enabling users to further refine edits in a professional NLE. Leverages the [jianying-editor-skill](https://github.com) API for draft creation, media import, and timeline assembly.
 - [ ] 🌐 **Online Service Interface**  
   Build a web-based service interface for easier access and deployment.
 
@@ -127,8 +124,8 @@ Extracts musical beats and energy signals to build rhythm-aware cuts that perfec
 ### 1. Install
 
 ```bash
-git clone https://github.com/treesan/cutclaw.git
-cd cutclaw
+git clone https://github.com/treesan/vcutclaw.git
+cd vcutclaw
 conda create -n CutClaw python=3.12
 conda activate CutClaw
 pip install -r requirements.txt
@@ -238,10 +235,10 @@ python render/render_video.py \
 
 ## 🚀 CLI Quick Reference
 
-All commands must be run from the CutClaw project directory with the correct conda environment:
+All commands must be run from the vcutclaw project directory with the correct conda environment:
 
 ```bash
-cd CutClaw
+cd vcutclaw
 conda activate CutClaw
 ```
 
@@ -301,7 +298,7 @@ python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
 # Download
 python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
   download "upbeat travel vlog" \
-  -o CutClaw/resource/audio/bgm.mp3
+  -o vcutclaw/resource/audio/bgm.mp3
 ```
 
 ### 5. Generate Shot Plan (shot_plan)
@@ -509,7 +506,7 @@ python local_run.py ... \
 
 
 ## ⭐ Citation
-If you find CutClaw useful for your research, welcome to cite our work using the following BibTeX:
+If you find vcutclaw useful for your research, welcome to cite the original work:
  ```bibtex
 @article{cutclaw,
   title={CutClaw: Agentic Hours-Long Video Editing via Music Synchronization},
@@ -523,7 +520,7 @@ If you find CutClaw useful for your research, welcome to cite our work using the
 
 ## 📜 License & Attribution
 
-This project is a **derivative work** of [GVCLab/CutClaw](https://github.com/GVCLab/CutClaw), the original academic research project by Shifang Zhao, Yihan Hu, Ying Shan, Yunchao Wei, and Xiaodong Cun from Beijing Jiaotong University, Great Bay University, and Tencent ARC Lab.
+vcutclaw is a **derivative work** of [GVCLab/CutClaw](https://github.com/GVCLab/CutClaw), the original academic research project by Shifang Zhao, Yihan Hu, Ying Shan, Yunchao Wei, and Xiaodong Cun from Beijing Jiaotong University, Great Bay University, and Tencent ARC Lab.
 
 - The original codebase and research are (c) GVCLab and its authors.
 - New features, modifications, and extensions by [@treesan](https://github.com/treesan) are released under the **MIT License** (see [LICENSE](LICENSE)).
@@ -534,7 +531,7 @@ This project is a **derivative work** of [GVCLab/CutClaw](https://github.com/GVC
 ## 📈 Star History
 
 <p align="center">
-  <a href="https://www.star-history.com/#treesan/cutclaw&Date">
-    <img src="https://api.star-history.com/svg?repos=treesan/cutclaw&type=Date" alt="Star History Chart" width="100%" />
+  <a href="https://www.star-history.com/#treesan/vcutclaw&Date">
+    <img src="https://api.star-history.com/svg?repos=treesan/vcutclaw&type=Date" alt="Star History Chart" width="100%" />
   </a>
 </p>
