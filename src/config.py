@@ -67,14 +67,21 @@ if VIDEO_TYPE == "film":
     SHOT_DETECTION_THRESHOLD = 3.0
     SHOT_DETECTION_MIN_SCENE_LEN = 3
 elif VIDEO_TYPE == "vlog":
-    SHOT_DETECTION_THRESHOLD = 1.5
-    SHOT_DETECTION_MIN_SCENE_LEN = 45
+    SHOT_DETECTION_THRESHOLD = 0.5       # ↓ 从 1.5 改为 0.5 — DJI 航拍缓慢运动检测
+    SHOT_DETECTION_MIN_SCENE_LEN = 15     # ↓ 从 45 改为 15 — 42s 短片装不下 22.5s 最小场景
 else:
     # Fallback defaults: use film settings.
-        SHOT_DETECTION_THRESHOLD = 3.0
+    SHOT_DETECTION_THRESHOLD = 3.0
     # For scenedetect: lower = more cuts, higher = more conservative.
-        SHOT_DETECTION_MIN_SCENE_LEN = 3
+    SHOT_DETECTION_MIN_SCENE_LEN = 3
     # Minimum shot length (in frames), used by some detectors.
+
+# Frame skip for shot detection (sampling step).
+# 0 = every frame, 1 = every 2nd frame, 29 = every 30th frame.
+# Lower values give finer detection but slower processing.
+# For 60fps DJI: 14 → 4 帧/秒采样（vs 默认 29 → 2 帧/秒）,
+# 可捕捉航拍缓慢运动中的微镜头变化。
+FRAME_SKIP = 14   # ↓ 从 29 改为 14 — 提高航拍素材的镜头检测精度
 
 SHOT_DETECTION_SCENES_PATH = "shot_scenes.txt"
 # Output filename for shot boundary results (usually no need to change).
@@ -450,6 +457,44 @@ SCENE_EXPLORATION_RANGE = 3
 # Extra exploration range around recommended scenes (±N scenes).
 # Example: if recommended scene is 8 and range=3, search scene 5~11.
 # Set to 0 to strictly limit selection to recommended scenes only.
+
+# ── 色彩空间配置 ────────────────────────────────────────────────
+# 设备默认模式: DJI(Normal) = BT.709, Nikon(Z6ii) = BT.709, iPhone(SDR) = BT.709
+# HDR 模式:     DJI(HLG) = BT.2020+HLG, iPhone(HDR) = BT.2020+PQ
+# 社交媒体平台大多不支持 HDR，建议统一到 BT.709
+
+TARGET_COLOR_SPACE = "bt709"
+# 目标色彩空间: "bt709" (SDR, 通用兼容) 或 "bt2020_hlg" (HDR, B站等支持)
+# bt709: 所有 HDR 内容自动转换为 SDR，零质量损失于原生 BT.709 素材
+# bt2020_hlg: 所有 SDR 内容上转换为 HDR，适合 HDR 显示设备
+
+COLOR_SPACE_CONVERSION = "auto"
+# 色彩空间转换策略:
+# "auto" — 检测源文件色彩空间，自动转换到 TARGET_COLOR_SPACE
+# "skip" — 不做色彩空间转换（保持源文件原始色彩空间）
+
+# ── 结尾视频配置 ───────────────────────────────────────────────
+# 用于在成片末尾自动拼接一段固定片尾（logo/版权/订阅提示等）
+
+ENDING_VIDEO_PATH = "resource/ending/ending.mp4"
+# 默认结尾视频路径。文件不存在时自动跳过，不会中断渲染。
+# 设为空字符串 "" 禁用结尾拼接。
+
+ENDING_VIDEO_DURATION = 0.0
+# 截取结尾视频的时长（秒）。0 = 使用结尾视频的完整时长。
+# 例如设 3.0 表示只截取前 3 秒。
+
+ENDING_FADE_DURATION = 0.5
+# 主体视频与结尾视频之间的交叉淡入淡出时长（秒）。
+
+# ── 媒体 Profile 覆盖 ─────────────────────────────────────────────
+# 修正 (优化 #9): 在 config_my.py 中设置可覆盖内置 profile 的 preset/crf，
+# 用于生产画质（慢预设 + 低 crf）vs 快速测试（ultrafast + 高 crf）。
+
+# MEDIA_PROFILE_PRESET_OVERRIDE = "slow"     # 覆盖 preset
+# MEDIA_PROFILE_CRF_OVERRIDE = 16            # 覆盖 crf
+MEDIA_PROFILE_PRESET_OVERRIDE = None   # None = 使用 profile 内置值
+MEDIA_PROFILE_CRF_OVERRIDE = None      # None = 使用 profile 内置值
 
 
 # ───────────────────────────────────────────────────────────────────────────────

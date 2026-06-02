@@ -3,16 +3,15 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="asset/CutClaw_dark.png" />
   <source media="(prefers-color-scheme: light)" srcset="asset/Cutclaw_light.png" />
-  <img src="asset/Cutclaw_light.png" alt="CutClaw teaser" width="50%" />
+  <img src="asset/Cutclaw_light.png" alt="vcutclaw teaser" width="50%" />
 </picture>
 
-## 🦞CutClaw-Batch： 面向批量长视频的多智能体协作音乐同步剪辑系统
+## 🦞 vcutclaw：面向批量长视频的多智能体协作音乐同步剪辑系统
 
-
-**🎬 你的个人剪辑师——将数小时素材一键打造成电影级蒙太奇。**
+**🎬 你的个人剪辑师——将数个素材一键打造成电影级蒙太奇。**
 
 [![arXiv](https://img.shields.io/badge/arXiv-paper-b31b1b.svg)](https://arxiv.org/abs/2603.29664)
-[![GitHub Stars](https://img.shields.io/github/stars/GVCLab/CutClaw?style=social)](https://github.com/GVCLab/CutClaw)
+[![GitHub Stars](https://img.shields.io/github/stars/treesan/cutclaw?style=social)](https://github.com/treesan/cutclaw)
 
 <p align="center">
   <img src="https://img.shields.io/badge/🎞️_长视频处理-1f6feb?style=flat-square" alt="长视频处理" />
@@ -35,7 +34,7 @@
 
 ## 💡 概述
 
-CutClaw 是一个面向长视频素材与音乐的端到端自动剪辑系统。
+vcutclaw 是一个面向长视频素材与音乐的端到端自动剪辑系统。
 
 它首先将原始视频和音频解析为结构化描述，再通过多智能体流水线完成镜头规划（`shot_plan`）、片段时间戳选取（`shot_point`）及质量验证，最终渲染输出成片。
 
@@ -45,8 +44,6 @@ CutClaw 是一个面向长视频素材与音乐的端到端自动剪辑系统。
 
 ## 🗺️ 路线图
 
-> 我们非常欢迎社区提出新的想法和 issue。如果您有建议，欢迎随时提交 issue。您的反馈将进入我们的未来计划，也会成为推动这个项目起飞的燃料。🔥
-
 ### 短期目标
 
 > 我们正在优先推进更快、更省、更具表现力的视频剪辑能力。
@@ -55,17 +52,15 @@ CutClaw 是一个面向长视频素材与音乐的端到端自动剪辑系统。
   引入 [ARC-Chapter](https://github.com/TencentARC/ARC-Chapter)，进一步降低长视频素材拆解的成本。
 - [ ] 💸 **低成本模式**  
   增加预算友好的低成本模式，不再对全部素材做完整处理，而是主动读取更相关的素材片段。
-- [ ] 🎙️ **口播 + 画面混剪逻辑**  
-  加入口播驱动片段与辅助画面素材协同组织的混合剪辑逻辑。
 
 ### 长期目标
 
-> 这些方向会帮助 CutClaw 走向更完整的产品形态和更广泛的生态适配。
+> 这些方向会帮助 vcutclaw 走向更完整的产品形态和更广泛的生态适配。
 
-- [ ] ✍️ **升级 Playwriter**  
-  引入更丰富的剪辑模式与视觉叙事方法，增强整体编排能力。
-- [ ] 🔌 **适配 Claude Code MCP**  
-  让 CutClaw 能够更顺畅地接入 Claude Code MCP 工作流。
+- [ ] 🎯 **素材偏好指定系统**  
+  允许用户在生成分镜方案时指定素材偏好：某些片段多保留镜头、指定时间段（如 DSC_8324 的 2-5s 多保留）、指定人物或风景多保留镜头。Web 后管页面支持多视频选择 + 可视化时间段编辑器。
+- [ ] 📱 **剪映/CapCut 草稿导出**  
+  从 vcutclaw 的 shot_plan/shot_point 生成剪映专业版草稿项目，支持用户在专业 NLE 中进一步精修。基于 [jianying-editor-skill](https://github.com) API 实现草稿创建、素材导入、时间线组装。
 - [ ] 🌐 **建立在线服务页面**  
   构建网页化在线服务界面，降低使用门槛并提升部署便利性。
 
@@ -127,8 +122,8 @@ CutClaw 是一个面向长视频素材与音乐的端到端自动剪辑系统。
 ### 1. 安装
 
 ```bash
-git clone https://github.com/GVCLab/CutClaw.git
-cd CutClaw
+git clone https://github.com/treesan/cutclaw.git
+cd cutclaw
 conda create -n CutClaw python=3.12
 conda activate CutClaw
 pip install -r requirements.txt
@@ -237,10 +232,10 @@ python render/render_video.py \
 
 ## 🚀 CLI 速查
 
-所有命令必须在 CutClaw 项目目录下，并激活正确的 conda 环境后执行：
+所有命令必须在 vcutclaw 项目目录下，并激活正确的 conda 环境后执行：
 
 ```bash
-cd ~/Develop/CutClaw
+cd vcutclaw
 conda activate CutClaw
 ```
 
@@ -302,7 +297,7 @@ python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
 # 下载
 python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
   download "upbeat travel vlog" \
-  -o ~/Develop/CutClaw/resource/audio/bgm.mp3
+  -o vcutclaw/resource/audio/bgm.mp3
 ```
 
 ### 5. 生成 Shot Plan（分镜方案）
@@ -372,7 +367,102 @@ python render/render_video.py \
   --render-hook-dialogue
 ```
 
-### 9. 常用配置覆盖
+### 9. 批量剪辑（多片段项目）
+
+当项目包含多个源视频（如一次旅行有 40+ 个大疆航拍片段）时，使用 `--project` 命令进行完整的批量剪辑流程。
+
+**Step 1 — 从视频目录创建项目：**
+
+```bash
+python local_run.py --project create \
+  --video-dir "/path/to/your/videos" \
+  --project-name "我的旅行"
+```
+
+扫描目录中所有 `.mp4`/`.mov` 文件，通过 ffprobe 提取元数据，并按录制日期自动分组。
+
+**Step 2 — 审查源素材一致性：**
+
+```bash
+python local_run.py --project review-sources \
+  --project-path "Output/Projects/<项目ID>/project.json"
+```
+
+检查所有片段的编码、分辨率、帧率和色彩空间一致性，标记问题并报告渲染时是否需要归一化。
+
+**Step 3 — 批量预处理所有片段：**
+
+```bash
+python local_run.py --project preprocess \
+  --project-path "Output/Projects/<项目ID>/project.json" \
+  --type vlog \
+  --max-workers 2
+```
+
+并行对每个片段执行镜头检测、描述生成、场景合并和场景分析。支持断点续跑——中断后重新执行相同命令会自动跳过已完成的片段。
+
+**Step 4 — 构建全局素材索引：**
+
+```bash
+python local_run.py --project build-index \
+  --project-path "Output/Projects/<项目ID>/project.json"
+```
+
+将所有片段的场景描述汇总为扁平化的 `material_index.json`，供策划智能体在整个项目范围内选片。
+
+**Step 5 — 生成分镜方案（自动 BGM 节奏分析）：**
+
+```bash
+python local_run.py --project plan \
+  --project-path "Output/Projects/<项目ID>/project.json" \
+  --profile bilibili_1080p \
+  --strategy "壮阔航拍配合电影感转场"
+```
+
+策划智能体自动分析 BGM（madmom 关键点检测 + LLM 段落/子段落描述），从素材索引中选场景，生成跨片段分镜方案。BGM 分析结果缓存到 `bgm_captions/` 目录。
+
+**Step 6 — 生成剪辑点（精确时间戳）：**
+
+```bash
+python local_run.py --project edit \
+  --project-path "Output/Projects/<项目ID>/project.json" \
+  --profile bilibili_1080p
+```
+
+读取分镜方案，按源片段分组，对每个片段调用 DirectShotSelector（LLM）生成精确入点出点。输出 `shot_point_<profile>.json`，每个 shot 包含 `clip_file_path` 标识来源文件。
+
+**Step 7 — 渲染成片：**
+
+```bash
+python local_run.py --project render \
+  --project-path "Output/Projects/<项目ID>/project.json" \
+  --profile bilibili_1080p \
+  --extract-timeout 600
+```
+
+多源渲染器：验证 → 提取 → 拼接 → BGM 混合 → 字幕叠加 → 结尾视频。自动从 `shot_points/` 目录发现 shot_point 文件。支持 `--with-ending`、`--ending-path`、`--ending-duration`、`--ending-fade` 追加结尾片段。
+
+**随时查看项目状态：**
+
+```bash
+python local_run.py --project status \
+  --project-path "Output/Projects/<项目ID>/project.json"
+```
+
+**批量流程一键执行：**
+
+```bash
+PROJECT="Output/Projects/我的旅行/project.json"
+python local_run.py --project create --video-dir "/视频目录" --project-name "我的旅行"
+python local_run.py --project review-sources --project-path "$PROJECT"
+python local_run.py --project preprocess --project-path "$PROJECT" --type vlog --max-workers 2
+python local_run.py --project build-index --project-path "$PROJECT"
+python local_run.py --project plan --project-path "$PROJECT" --profile bilibili_1080p --strategy "旅行 vlog"
+python local_run.py --project edit --project-path "$PROJECT" --profile bilibili_1080p
+python local_run.py --project render --project-path "$PROJECT" --profile bilibili_1080p
+```
+
+### 10. 常用配置覆盖
 
 运行时覆盖 `src/config.py` 中的参数：
 
@@ -398,6 +488,20 @@ python local_run.py ... \
 | Shot Point | `Output/Output/{ID}/{BGM}/shot_point_xxx.json` | 精确时间戳 |
 | 成片 | `Output/Output/{ID}/{BGM}/output_9x16.mp4` | 渲染视频 |
 
+#### 批量剪辑产出
+
+| 操作 | 产出路径 | 说明 |
+|------|---------|------|
+| 项目 | `Output/Projects/{ID}/project.json` | 项目元数据 + 片段列表 |
+| 源素材审查 | `Output/Projects/{ID}/source_review.json` | 编码/分辨率/帧率审计 |
+| 片段预处理 | `Output/Projects/{ID}/Clips/{clip_id}/` | 逐片段场景分析 |
+| 断点 | `Output/Projects/{ID}/checkpoints/` | 可续跑的阶段状态 |
+| 素材索引 | `Output/Projects/{ID}/material_index.json` | 供策划使用的全局场景索引 |
+| BGM 分析 | `Output/Projects/{ID}/bgm_captions/` | 自动生成的 BGM 节奏分析 |
+| 分镜方案 | `Output/Projects/{ID}/shot_plans/shot_plan_<profile>.json` | 跨片段创意分镜 |
+| 剪辑点 | `Output/Projects/{ID}/shot_points/shot_point_<profile>.json` | 含来源片段的逐镜头时间戳 |
+| 渲染成片 | `Output/Projects/{ID}/output/<profile>.mp4` | 多源渲染最终视频 |
+
 ---
 
 ## 🛠️ 常见问题
@@ -413,7 +517,7 @@ python local_run.py ... \
 
 ## ⭐ 引用
 
-如果 CutClaw 对您的研究有所帮助，欢迎引用我们的工作：
+如果 vcutclaw 对您的研究有所帮助，欢迎引用原始工作：
  ```bibtex
 @article{cutclaw,
   title={CutClaw: Agentic Hours-Long Video Editing via Music Synchronization},
@@ -438,7 +542,7 @@ python local_run.py ... \
 ## 📈 Star History
 
 <p align="center">
-  <a href="https://www.star-history.com/#GVCLab/CutClaw&Date">
-    <img src="https://api.star-history.com/svg?repos=GVCLab/CutClaw&type=Date" alt="Star History Chart" width="100%" />
+  <a href="https://www.star-history.com/#treesan/vcutclaw&Date">
+    <img src="https://api.star-history.com/svg?repos=treesan/vcutclaw&type=Date" alt="Star History Chart" width="100%" />
   </a>
 </p>

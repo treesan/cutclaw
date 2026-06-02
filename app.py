@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import re
-import hashlib
 import importlib
 import subprocess
 import threading
@@ -376,21 +375,13 @@ with st.sidebar:
         )
 # ── Helpers ────────────────────────────────────────────────────
 def derive_shot_point_path(video_path: str, audio_path: str, instruction: str) -> str:
-    import src.config as config
-    video_id = os.path.splitext(os.path.basename(video_path))[0].replace('.', '_').replace(' ', '_')
-    audio_id = os.path.splitext(os.path.basename(audio_path))[0].replace('.', '_').replace(' ', '_')
-    instruction_hash = hashlib.md5(instruction.encode('utf-8')).hexdigest()[:8]
-    instruction_safe = re.sub(r'[^\w\s-]', '', instruction)[:50].strip().replace(' ', '_')
-    instruction_id = f"{instruction_safe}_{instruction_hash}" if instruction_safe else f"instruction_{instruction_hash}"
-    return os.path.join(
-        config.VIDEO_DATABASE_FOLDER, 'Output',
-        f"{video_id}_{audio_id}",
-        f"shot_point_{instruction_id}.json"
-    )
+    from src.utils.paths import derive_artifact_path
+    return derive_artifact_path(video_path, audio_path, instruction, "shot_point")
 
 
 def derive_shot_plan_path(video_path: str, audio_path: str, instruction: str) -> str:
-    return derive_shot_point_path(video_path, audio_path, instruction).replace("shot_point_", "shot_plan_")
+    from src.utils.paths import derive_artifact_path
+    return derive_artifact_path(video_path, audio_path, instruction, "shot_plan")
 
 
 def _resolve_path(path: str) -> str:

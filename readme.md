@@ -3,15 +3,12 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="asset/CutClaw_dark.png" />
   <source media="(prefers-color-scheme: light)" srcset="asset/CutClaw_light.png" />
-  <img src="asset/Cutclaw_light.png" alt="CutClaw teaser" width="50%" />
+  <img src="asset/Cutclaw_light.png" alt="vcutclaw teaser" width="50%" />
 </picture>
 
-## 🦞CutClaw-Batch: Agentic Batch Long-Form Video Editing System with Music Synchronization
+## 🦞 vcutclaw: Agentic Batch Long-Form Video Editing System with Music Synchronization
 
-#### <a href='https://zzsf11.github.io/'>Shifang Zhao</a> · <a href='https://scholar.google.com/citations?hl=zh-CN&user=UP2IgWIAAAAJ'>Yihan Hu</a> · <a href='https://scholar.google.com/citations?user=4oXBp9UAAAAJ&hl=zh-CN'>Ying Shan</a> · <a href='https://scholar.google.com/citations?user=qL9Csv0AAAAJ&hl=zh-CN'>Yunchao Wei</a> · <a href='http://vinthony.github.io/'>Xiaodong Cun</a> 
-###### Beijing Jiaotong University · GVC Lab, Great Bay University · Tencent ARC Lab
-
-**🎬 Your personal editor for turning hours of footage into cinematic montages.**
+**🎬 Your personal editor: turn a few clips into a cinematic montage, instantly.**
 
 <p align="center">
   <img src="https://img.shields.io/badge/🎞️_Hours--Long_Footage-1f6feb?style=flat-square" alt="Hours-Long Footage" />
@@ -25,7 +22,7 @@
 	<a href="readme.md"><img src="https://img.shields.io/badge/English-1a1a2e"></a>
     <a href="readme_zh.md"><img src="https://img.shields.io/badge/中文版-1a1a2e"></a>
 	<a href="https://arxiv.org/abs/2603.29664"><img src="https://img.shields.io/badge/arXiv-paper-b31b1b.svg"></a>
-	<a href="https://github.com/GVCLab/CutClaw"><img src="https://img.shields.io/github/stars/GVCLab/CutClaw?style=social"></a>
+	<a href="https://github.com/treesan/cutclaw"><img src="https://img.shields.io/github/stars/treesan/cutclaw?style=social"></a>
 </p>
 
 [Overview](#-overview) • [Roadmap](#-roadmap) • [Features](#-key-features) • [Gallery](#️-gallery) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [Troubleshooting](#️-troubleshooting) • [Citation](#-citation) • [Star History](#-star-history)
@@ -36,7 +33,7 @@
 
 ## 💡 Overview
 
-CutClaw is an end-to-end editing system for long-form footage + music.
+vcutclaw is an end-to-end editing system for long-form footage + music.
 
 It first deconstructs raw video/audio into structured captions, then uses a multi-agent pipeline to plan shots (`shot_plan`), select clip timestamps (`shot_point`), and validate final quality before rendering.
 
@@ -50,25 +47,19 @@ It first deconstructs raw video/audio into structured captions, then uses a mult
 
 ### Short-Term Goals
 
-> What we're building next for faster, cheaper, and more expressive video editing.
-
 - [ ] 🧩 **ARC-Chapter Integration**  
   Bring in [ARC-Chapter](https://github.com/TencentARC/ARC-Chapter) to reduce the cost of long-form footage deconstruction.
 - [ ] 💸 **Low-Cost Mode**  
   Add a budget-friendly mode that proactively reads only relevant footage instead of fully processing all source material.
-- [ ] 🎙️ **Talking-Head + Visual Mixing**  
-  Introduce hybrid editing logic that coordinates narration-driven clips with supporting visual footage.
 
 ### Long-Term Goals
 
-> Broader product and ecosystem directions for the next stage of CutClaw.
+> Broader product and ecosystem directions for the next stage of vcutclaw.
 
-- [ ] ✍️ **Playwriter Upgrade**  
-  Expand the Playwriter with richer editing patterns and more diverse visual storytelling methods.
-- [ ] 🔌 **Claude Code MCP Support**  
-  Adapt CutClaw to work smoothly within Claude Code MCP workflows.
-- [ ] 🌐 **Online Service Interface**  
-  Build a web-based service interface for easier access and deployment.
+- [ ] 🎯 **Clip Preference System**  
+  Allow users to specify which clips, time ranges, or subjects (people/landscapes) should receive more shots in the generated plan. For example: "keep more shots from clip DSC_8324 between 2-5s", "preserve more frames of the mountain landscape", or "prioritize shots with the main character". The web UI will support multi-clip selection with visual time range editors.
+- [ ] 📱 **JianYing Pro / CapCut Draft Export**  
+  Generate JianYing Pro (剪映专业版) draft projects from vcutclaw's shot_plan/shot_point, enabling users to further refine edits in a professional NLE. Leverages the [jianying-editor-skill](https://github.com) API for draft creation, media import, and timeline assembly.
 
 ---
 
@@ -127,8 +118,8 @@ Extracts musical beats and energy signals to build rhythm-aware cuts that perfec
 ### 1. Install
 
 ```bash
-git clone https://github.com/GVCLab/CutClaw.git
-cd CutClaw
+git clone https://github.com/treesan/cutclaw.git
+cd cutclaw
 conda create -n CutClaw python=3.12
 conda activate CutClaw
 pip install -r requirements.txt
@@ -238,10 +229,10 @@ python render/render_video.py \
 
 ## 🚀 CLI Quick Reference
 
-All commands must be run from the CutClaw project directory with the correct conda environment:
+All commands must be run from the vcutclaw project directory with the correct conda environment:
 
 ```bash
-cd ~/Develop/CutClaw
+cd vcutclaw
 conda activate CutClaw
 ```
 
@@ -301,7 +292,7 @@ python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
 # Download
 python3 ~/.openclaw/skills/pixabay-music-skill/scripts/pixabay_music.py \
   download "upbeat travel vlog" \
-  -o ~/Develop/CutClaw/resource/audio/bgm.mp3
+  -o vcutclaw/resource/audio/bgm.mp3
 ```
 
 ### 5. Generate Shot Plan (shot_plan)
@@ -357,7 +348,103 @@ python src/short_video_editor.py \
   --action render
 ```
 
-### 9. Key Config Overrides
+### 9. Batch Editing (Multi-Clip Project)
+
+For projects with multiple source clips (e.g. a trip with 40+ DJI drone videos), use the `--project` commands to create, preprocess, plan, edit, and render from a unified workflow.
+
+**Step 1 — Create a project from a video directory:**
+
+```bash
+python local_run.py --project create \
+  --video-dir "/path/to/your/videos" \
+  --project-name "My Trip"
+```
+
+Scans all `.mp4`/`.mov` files, extracts metadata via ffprobe, and groups clips by recording date.
+
+**Step 2 — Review source media consistency:**
+
+```bash
+python local_run.py --project review-sources \
+  --project-path "Output/Projects/<project_id>/project.json"
+```
+
+Checks codec, resolution, fps, and colorspace across all clips. Flags issues and reports whether normalization is needed during rendering.
+
+**Step 3 — Batch preprocess all clips:**
+
+```bash
+python local_run.py --project preprocess \
+  --project-path "Output/Projects/<project_id>/project.json" \
+  --type vlog \
+  --max-workers 2
+```
+
+Runs shot detection, captioning, scene merge, and scene analysis for every clip in parallel. Supports checkpoint-based resume — if interrupted, rerun the same command to skip completed clips.
+
+**Step 4 — Build global material index:**
+
+```bash
+python local_run.py --project build-index \
+  --project-path "Output/Projects/<project_id>/project.json"
+```
+
+Aggregates all clip scene summaries into a flat `material_index.json` for the planner agent to select shots across the entire project.
+
+**Step 5 — Generate shot plan (BGM rhythm auto-analysis):**
+
+```bash
+python local_run.py --project plan \
+  --project-path "Output/Projects/<project_id>/project.json" \
+  --profile bilibili_1080p \
+  --strategy "epic drone shots with cinematic transitions"
+```
+
+The planner agent automatically analyzes the BGM (madmom keypoint detection + LLM section/sub-segment captioning), selects scenes from the material index, and generates a cross-clip shot plan. BGM analysis results are cached to `bgm_captions/`.
+
+**Step 6 — Generate shot points (precise timestamps):**
+
+```bash
+python local_run.py --project edit \
+  --project-path "Output/Projects/<project_id>/project.json" \
+  --profile bilibili_1080p
+```
+
+Reads the shot plan, groups shots by source clip, and runs DirectShotSelector (LLM) per clip to generate precise start/end timestamps. Outputs `shot_point_<profile>.json` with `clip_file_path` per shot.
+
+**Step 7 — Render the final video:**
+
+```bash
+python local_run.py --project render \
+  --project-path "Output/Projects/<project_id>/project.json" \
+  --profile bilibili_1080p \
+  --extract-timeout 600
+```
+
+Multi-source renderer: validates → extracts → stitches → BGM mix → subtitles → ending video. Shot point auto-discovered from `shot_points/` directory. Supports `--with-ending`, `--ending-path`, `--ending-duration`, `--ending-fade` for appending an outro clip.
+
+**Check project status at any time:**
+
+```bash
+python local_run.py --project status \
+  --project-path "Output/Projects/<project_id>/project.json"
+```
+
+**Batch workflow summary:**
+
+```bash
+# Full pipeline (5 commands)
+PROJECT="Output/Projects/MyTrip/project.json"
+python local_run.py --project create --video-dir "/videos" --project-name "MyTrip"
+python local_run.py --project review-sources --project-path "$PROJECT"
+python local_run.py --project preprocess --project-path "$PROJECT" --type vlog --max-workers 2
+python local_run.py --project build-index --project-path "$PROJECT"
+python local_run.py --project plan --project-path "$PROJECT" --profile bilibili_1080p --strategy "travel vlog"
+python local_run.py --project edit --project-path "$PROJECT" --profile bilibili_1080p
+python local_run.py --project render --project-path "$PROJECT" --profile bilibili_1080p
+```
+
+### 10. Key Config Overrides
 
 Common runtime configuration overrides:
 
@@ -383,6 +470,20 @@ python local_run.py ... \
 | Shot Point | `Output/Output/{ID}/{BGM}/shot_point_xxx.json` | Precise timestamps |
 | Final Video | `Output/Output/{ID}/{BGM}/output_9x16.mp4` | Rendered video |
 
+#### Batch Editing Outputs
+
+| Operation | Output Path | Description |
+|-----------|-------------|-------------|
+| Project | `Output/Projects/{ID}/project.json` | Project metadata + clip list |
+| Source Review | `Output/Projects/{ID}/source_review.json` | Codec/resolution/fps audit |
+| Clip Preprocess | `Output/Projects/{ID}/Clips/{clip_id}/` | Per-clip scene analysis |
+| Checkpoints | `Output/Projects/{ID}/checkpoints/` | Resumable stage state |
+| Material Index | `Output/Projects/{ID}/material_index.json` | Global scene index for planner |
+| BGM Captions | `Output/Projects/{ID}/bgm_captions/` | Auto-generated BGM rhythm analysis |
+| Shot Plan | `Output/Projects/{ID}/shot_plans/shot_plan_<profile>.json` | Cross-clip creative plan |
+| Shot Points | `Output/Projects/{ID}/shot_points/shot_point_<profile>.json` | Per-shot timestamps with source clip |
+| Render Output | `Output/Projects/{ID}/output/<profile>.mp4` | Final multi-source rendered video |
+
 ---
 
 ## 🛠️ Troubleshooting
@@ -399,7 +500,7 @@ python local_run.py ... \
 
 
 ## ⭐ Citation
-If you find CutClaw useful for your research, welcome to cite our work using the following BibTeX:
+If you find vcutclaw useful for your research, welcome to cite the original work:
  ```bibtex
 @article{cutclaw,
   title={CutClaw: Agentic Hours-Long Video Editing via Music Synchronization},
@@ -413,7 +514,7 @@ If you find CutClaw useful for your research, welcome to cite our work using the
 
 ## 📜 License & Attribution
 
-This project is a **derivative work** of [GVCLab/CutClaw](https://github.com/GVCLab/CutClaw), the original academic research project by Shifang Zhao, Yihan Hu, Ying Shan, Yunchao Wei, and Xiaodong Cun from Beijing Jiaotong University, Great Bay University, and Tencent ARC Lab.
+vcutclaw is a **derivative work** of [GVCLab/CutClaw](https://github.com/GVCLab/CutClaw), the original academic research project by Shifang Zhao, Yihan Hu, Ying Shan, Yunchao Wei, and Xiaodong Cun from Beijing Jiaotong University, Great Bay University, and Tencent ARC Lab.
 
 - The original codebase and research are (c) GVCLab and its authors.
 - New features, modifications, and extensions by [@treesan](https://github.com/treesan) are released under the **MIT License** (see [LICENSE](LICENSE)).
@@ -424,7 +525,7 @@ This project is a **derivative work** of [GVCLab/CutClaw](https://github.com/GVC
 ## 📈 Star History
 
 <p align="center">
-  <a href="https://www.star-history.com/#GVCLab/CutClaw&Date">
-    <img src="https://api.star-history.com/svg?repos=GVCLab/CutClaw&type=Date" alt="Star History Chart" width="100%" />
+  <a href="https://www.star-history.com/#treesan/vcutclaw&Date">
+    <img src="https://api.star-history.com/svg?repos=treesan/vcutclaw&type=Date" alt="Star History Chart" width="100%" />
   </a>
 </p>

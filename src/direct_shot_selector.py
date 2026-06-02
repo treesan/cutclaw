@@ -352,9 +352,17 @@ class DirectShotSelector:
         with open(shot_plan_path, "r", encoding="utf-8") as f:
             self.shot_plan = json.load(f)
 
-        print(f"[DirectShotSelector] Loading audio captions: {audio_caption_path}")
-        with open(audio_caption_path, "r", encoding="utf-8") as f:
-            self.audio_db = json.load(f)
+        print(f"[DirectShotSelector] Loading audio captions: {audio_caption_path or '(empty, using empty placeholder)'}")
+        if audio_caption_path and os.path.exists(audio_caption_path):
+            with open(audio_caption_path, "r", encoding="utf-8") as f:
+                self.audio_db = json.load(f)
+        else:
+            # 修正 (BUG-RT-07): audio_caption_path 为空或不存在时使用空占位
+            self.audio_db = {
+                "metadata": {"bpm": 0, "section_count": 0, "audio_duration": 0},
+                "sections": [],
+                "sub_segments": [],
+            }
 
         self.raw_scenes = _load_scene_summaries_raw(scene_summary_dir)
         self.scene_cuts = _load_scene_cuts(scene_cuts_path) if scene_cuts_path else []
@@ -562,6 +570,20 @@ class DirectShotSelector:
                 print("  ✅ All issues resolved after repair")
         else:
             print("✅ [DirectShotSelector] Validation passed")
+
+        # 批量模式：注入 clip 元数据（v2.0 格式）
+        clip_meta = getattr(self, '_clip_metadata', None)
+        if clip_meta and isinstance(result, dict) and "shots" in result:
+            shot_scene_ids = clip_meta.get("shot_scene_ids", {})
+            for shot in result["shots"]:
+                shot.setdefault("clip_file_path", clip_meta.get("clip_file_path", ""))
+                shot.setdefault("clip_id", clip_meta.get("clip_id", ""))
+                # 修正 (BUG-RT-08): 用 start_sec 匹配（比 shot_idx 更稳定）
+                start_key = round(shot.get("start_sec", 0), 2)
+                shot.setdefault("scene_id", shot_scene_ids.get(start_key, ""))
+                shot.setdefault("speed", 1.0)
+                shot.setdefault("transition", "cut")
+            print(f"🔗 [DirectShotSelector] Injected clip metadata into {len(result['shots'])} shots")
 
         # 写入输出
         if self.output_path:

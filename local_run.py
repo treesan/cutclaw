@@ -81,6 +81,290 @@ def parse_config_overrides(unknown_args):
             print(f"⚠️ Warning: Unknown argument '{arg}' ignored")
             i += 1
 
+def _run_project_command(args):
+    """Handle --project subcommands for batch editing."""
+    from src.project.project import ProjectManager
+
+    if args.project == "create":
+        if not args.video_dir:
+            print("❌ --video-dir is required for 'create'")
+            return
+        print(f"📂 Creating project from: {args.video_dir}")
+        project = ProjectManager.create_from_directory(
+            video_dir=args.video_dir,
+            project_name=args.project_name or "",
+        )
+        print(f"\n✅ Project created: {project.metadata_path}")
+        print(ProjectManager.status_summary(project))
+
+    elif args.project == "status":
+        if not args.project_path:
+            print("❌ --project-path is required for 'status'")
+            return
+        project = ProjectManager.load(args.project_path)
+        print(ProjectManager.status_summary(project))
+
+    elif args.project == "review-sources":
+        if not args.project_path:
+            print("❌ --project-path is required for 'review-sources'")
+            return
+        project = ProjectManager.load(args.project_path)
+        from src.batch.source_media_review import SourceMediaReview
+        reviewer = SourceMediaReview()
+        report = reviewer.review_project(project)
+        print(reviewer.format_report(report))
+        report_path = os.path.join(project.output_dir, "source_review.json")
+        reviewer.save_report(report, report_path)
+        print(f"\n💾 Report saved to: {report_path}")
+
+    elif args.project == "preprocess":
+        if not args.project_path:
+            print("❌ --project-path is required for 'preprocess'")
+            return
+        project = ProjectManager.load(args.project_path)
+        from src.batch.batch_preprocess import BatchPreprocessor
+        video_type = getattr(args, "type", "vlog")
+        max_workers = getattr(args, "max_workers", 2) or 2
+        max_clips = getattr(args, "max_clips", 0) or 0
+
+        # 如果指定了 --max-clips，截取前 N 个
+        if max_clips > 0:
+            target_clip_ids = [c.clip_id for c in project.clips[:max_clips]]
+            print(f"📌 只处理前 {max_clips} 个 clip: {target_clip_ids[:3]}...")
+        else:
+            target_clip_ids = None
+
+        preprocessor = BatchPreprocessor(
+            project=project,
+            max_workers=max_workers,
+            video_type=video_type,
+            skip_existing=True,
+        )
+        preprocessor.run(clip_ids=target_clip_ids)
+
+    elif args.project == "build-index":
+        if not args.project_path:
+            print("❌ --project-path is required for 'build-index'")
+            return
+        project = ProjectManager.load(args.project_path)
+        from src.batch.material_index import build_material_index, save_material_index
+        print(f"📊 Building material index for {project.project_id}...")
+        index = build_material_index(project)
+        index_path = os.path.join(project.output_dir, "material_index.json")
+        save_material_index(index, index_path)
+        print(f"✅ Material index built: {index.total_scenes} scenes from {index.valid_clips} clips")
+        print(f"💾 Saved to: {index_path}")
+
+    elif args.project == "plan":
+        if not args.project_path:
+            print("❌ --project-path is required for 'plan'")
+            return
+        project = ProjectManager.load(args.project_path)
+        from src.batch.material_index import load_material_index
+        from src.project.media_profiles import get_profile
+
+        # Load material index
+        index_path = os.path.join(project.output_dir, "material_index.json")
+        if not os.path.exists(index_path):
+            print(f"❌ Material index not found: {index_path}")
+            print("   Run 'build-index' first: python local_run.py --project build-index --project-path ...")
+            return
+        index = load_material_index(index_path)
+        print(f"📊 Loaded material index: {index.total_scenes} scenes from {index.valid_clips} clips")
+
+        # Get profile
+        try:
+            profile = get_profile(args.profile)
+        except ValueError as e:
+            print(f"❌ {e}")
+            return
+        print(f"🎬 Output profile: {profile.name} ({profile.width}x{profile.height})")
+
+        # Create PlannerAgent from project
+        from src.planner_agent import PlannerAgent
+        video_type = getattr(args, 'type', 'vlog') or 'vlog'
+        agent, scene_mapping = PlannerAgent.from_project(
+            project=project,
+            material_index=index,
+            profile=profile,
+            bgm_segments=project.bgm_config.segments if project.bgm_config.segments else None,
+            video_type=video_type,
+            strategy=getattr(args, 'strategy', '') or "",
+        )
+        print(f"🖊️  Generating shot plan...")
+        result = agent.generate_project_shot_plan(
+            scene_mapping=scene_mapping,
+            strategy_context=args.strategy or "",
+        )
+        print(f"\n{'='*60}")
+        print(f"✅ Shot plan generated in {result['elapsed']:.1f}s")
+        print(f"💾 Saved to: {result['path']}")
+        print(f"{'='*60}")
+        print(f"\n{agent.summarize_shot_plan()}")
+
+    elif args.project == "edit":
+        if not args.project_path:
+            print("❌ --project-path is required for 'edit'")
+            return
+        if not args.shot_plan:
+            print("❌ --shot-plan is required for 'edit'")
+            return
+        project = ProjectManager.load(args.project_path)
+        from src.batch.material_index import load_material_index
+        from src.project.media_profiles import get_profile
+        from src.short_video_editor import ShortVideoEditor
+
+        # 加载 material_index
+        index_path = os.path.join(project.output_dir, "material_index.json")
+        if not os.path.exists(index_path):
+            print(f"❌ Material index not found: {index_path}")
+            print("   先运行: python local_run.py --project build-index --project-path ...")
+            return
+        index = load_material_index(index_path)
+        print(f"📊 已加载素材索引: {index.total_scenes} 个场景, {index.valid_clips} 个有效 clip")
+
+        # 获取 profile
+        try:
+            profile = get_profile(args.profile)
+        except ValueError as e:
+            print(f"❌ {e}")
+            return
+        print(f"🎬 输出配置: {profile.name} ({profile.width}x{profile.height})")
+
+        # 创建编辑器
+        video_type = getattr(args, 'type', 'vlog') or 'vlog'
+        editor = ShortVideoEditor.from_project(
+            project=project,
+            material_index=index,
+            profile=profile,
+            shot_plan_path=args.shot_plan,
+            video_type=video_type,
+        )
+
+        # 生成 shot_point
+        result = editor.generate_shot_point_project(
+            shot_point_context=args.strategy or "",
+        )
+        if result:
+            print(f"\n{editor.summarize_shot_point()}")
+
+    elif args.project == "render":
+        if not args.project_path:
+            print("❌ --project-path is required for 'render'")
+            return
+        project = ProjectManager.load(args.project_path)
+        from src.project.media_profiles import get_profile
+        from src.short_video_editor import ShortVideoEditor
+        from render.multi_source_renderer import MultiSourceRenderer
+
+        # 获取 profile
+        try:
+            profile = get_profile(args.profile)
+        except ValueError as e:
+            print(f"❌ {e}")
+            return
+        print(f"🎬 输出配置: {profile.name} ({profile.width}x{profile.height})")
+
+        # 确定 BGM
+        bgm_path = ""
+        bgm_start = 0.0
+        bgm_duration = 0.0
+        if project.bgm_config.segments:
+            seg = project.bgm_config.segments[0]
+            bgm_path = seg.audio_path
+            bgm_start = seg.start_sec
+            bgm_duration = seg.duration_sec
+
+        output_dir = os.path.join(project.output_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, f"{profile.name}.mp4")
+
+        # 修正 (优化 #5 + #12): --shot-point 未指定时自动发现
+        if not args.shot_point:
+            from src.utils.paths import discover_shot_point
+            sp_dir = os.path.join(project.output_dir, "shot_points")
+            args.shot_point = discover_shot_point(sp_dir, profile.name)
+            if args.shot_point:
+                print(f"📌 自动选择 shot_point: {args.shot_point}")
+
+        if not args.shot_point:
+            print("❌ --shot-point 未找到")
+            print("   先运行: python local_run.py --project edit --project-path ...")
+            return
+
+        # 修正 (优化 #7): 渲染前自动检查 source_review，Needs normalization 时 warn
+        source_review_path = os.path.join(project.output_dir, "source_review.json")
+        if os.path.exists(source_review_path):
+            try:
+                with open(source_review_path) as f:
+                    sr = json.load(f)
+                if sr.get("needs_normalization"):
+                    print("⚠️  Source Review 显示 needs_normalization=True:")
+                    print(f"   分辨率: {sr.get('resolution_variants', [])}")
+                    print(f"   编码: {sr.get('codec_variants', [])}")
+                    print(f"   帧率: {sr.get('fps_variants', [])}")
+                    print("   渲染器会自动归一化，但会牺牲效率。建议先转码。")
+            except Exception:
+                pass
+
+        # 修正 (优化 #6): 渲染 checkpoint
+        checkpoint_dir = os.path.join(project.output_dir, "checkpoints")
+        from src.batch.checkpoint import CheckpointManager, StageCheckpoint
+        ckpt = CheckpointManager(checkpoint_dir, project_id=project.project_id)
+        render_stage = f"render_{profile.name}"
+        if ckpt.is_clip_done(render_stage, profile.name):
+            print(f"⏭️  {profile.name} 已渲染完成，跳过（删除 checkpoint 强制重跑）")
+            return
+
+        # 修正 (优化 #8): 通过 ShortVideoEditor.render_project() 统一入口渲染
+        from src.short_video_editor import ShortVideoEditor
+        editor = ShortVideoEditor(
+            video_path=project.base_dir,
+            shot_plan_path=args.shot_point,  # 用 shot_point_path 占位
+            scene_summary_dir="",
+            audio_caption_path="",
+            output_dir=os.path.join(project.output_dir, "shot_points"),
+        )
+        editor._project = project
+        editor._profile = profile
+
+        ending_path = ""
+        if args.with_ending:
+            ending_path = getattr(args, 'ending_path', '') or getattr(config, 'ENDING_VIDEO_PATH', '')
+            if ending_path and not os.path.exists(ending_path):
+                # 尝试相对于项目根目录
+                project_root = os.path.dirname(os.path.abspath(__file__))
+                full_path = os.path.join(project_root, ending_path)
+                if os.path.exists(full_path):
+                    ending_path = full_path
+                else:
+                    print(f"⚠️  结尾视频文件不存在: {ending_path}，自动跳过")
+                    ending_path = ""
+
+        result = editor.render_project(
+            shot_point_path=args.shot_point,
+            extract_timeout=getattr(args, 'extract_timeout', 600) or 600,
+            ending_video_path=ending_path,
+            ending_duration=getattr(args, 'ending_duration', 0.0) or getattr(config, 'ENDING_VIDEO_DURATION', 0.0),
+            ending_fade_duration=getattr(args, 'ending_fade', 0.5) or getattr(config, 'ENDING_FADE_DURATION', 0.5),
+        )
+        print(f"\n渲染结果: {result.get('status')}")
+        if result.get('errors'):
+            for e in result['errors']:
+                print(f"  ❌ {e}")
+        if result.get('error'):
+            print(f"  ❌ {result['error']}")
+        if result.get('warnings'):
+            for w in result['warnings']:
+                print(f"  ⚠️ {w}")
+
+        # 写入 checkpoint
+        if result.get('status') == "pass":
+            output_path_final = result.get('output_path', output_path)
+            ckpt.mark_completed(render_stage, profile.name, artifacts=[output_path_final])
+            print(f"💾 Checkpoint 已保存: {render_stage}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run VideoCaptioningAgent on a video.")
     parser.add_argument("--Video_Path", help="The URL of the video to process.", default="Dataset/Video/Movie/La_La_Land.mkv")
@@ -92,11 +376,34 @@ def main():
     parser.add_argument("--SRT_Path", type=str,
                         help="Path to existing SRT file. Skips ASR transcription; diarization still runs to assign speakers.")
 
+    # Batch project mode (new, incremental — does not affect existing flow)
+    parser.add_argument("--project", choices=["create", "status", "preprocess", "build-index", "review-sources", "plan", "edit", "render"],
+                        help="Batch project subcommand. When set, runs project management instead of single-video pipeline.")
+    parser.add_argument("--project-path", type=str, help="Path to project.json for batch operations.")
+    parser.add_argument("--video-dir", type=str, help="Source video directory for 'create' command.")
+    parser.add_argument("--project-name", type=str, default="", help="Friendly project name (auto-derived from directory if omitted).")
+    parser.add_argument("--max-workers", type=int, default=2, help="Parallel workers for batch preprocess (default: 2).")
+    parser.add_argument("--max-clips", type=int, default=0, help="只处理前 N 个 clip (0=全部, 用于局部测试).")
+    parser.add_argument("--profile", type=str, default="bilibili_4k", help="Output media profile for 'plan'/'edit' command (default: bilibili_4k).")
+    parser.add_argument("--strategy", type=str, default="", help="Editing strategy context for 'plan' command.")
+    parser.add_argument("--shot-plan", type=str, default="", help="Path to shot_plan.json for 'edit' command.")
+    parser.add_argument("--shot-point", type=str, default="", help="Path to shot_point.json for 'render' command.")
+    parser.add_argument("--extract-timeout", type=int, default=600, help="单个片段提取超时（秒，默认 600）.")
+    parser.add_argument("--with-ending", action="store_true", help="在成片末尾拼接结尾视频（resource/ending/ending.mp4）.")
+    parser.add_argument("--ending-path", type=str, default="", help="自定义结尾视频路径（覆盖 config.ENDING_VIDEO_PATH）.")
+    parser.add_argument("--ending-duration", type=float, default=0.0, help="截取结尾视频的时长（秒，0=完整）.")
+    parser.add_argument("--ending-fade", type=float, default=0.5, help="主体与结尾视频的交叉淡入淡出（秒）.")
+
     # Parse known args and capture unknown args for config overrides
     args, unknown = parser.parse_known_args()
 
     # Apply config overrides
     parse_config_overrides(unknown)
+
+    # ── Route to batch project commands if --project is set ──
+    if args.project:
+        _run_project_command(args)
+        return
 
     config.VIDEO_TYPE = args.type
 
@@ -108,18 +415,9 @@ def main():
     video_id = os.path.splitext(os.path.basename(Video_Path))[0].replace('.', '_').replace(' ', '_')
     audio_id = os.path.splitext(os.path.basename(Audio_Path))[0].replace('.', '_').replace(' ', '_') if Audio_Path else "no_audio"
 
-    # Generate a safe filename from instruction
-    import re
-    import hashlib
-    # Create a short hash of the instruction for uniqueness
-    instruction_hash = hashlib.md5(Instruction.encode('utf-8')).hexdigest()[:8]
-    # Create a more readable version (up to 50 characters, sanitized)
-    instruction_safe = re.sub(r'[^\w\s-]', '', Instruction)[:50].strip().replace(' ', '_')
-    # If instruction is too long or empty, use a more informative format
-    if len(instruction_safe) > 0:
-        instruction_id = f"{instruction_safe}_{instruction_hash}"
-    else:
-        instruction_id = f"instruction_{instruction_hash}"
+    # 修正 (优化 #12): 使用共享路径工具生成 instruction_id
+    from src.utils.paths import derive_instruction_id
+    instruction_id = derive_instruction_id(Instruction)
 
     # ===== All Path Definitions =====
     # Raw video output
@@ -146,18 +444,9 @@ def main():
     audio_caption_file = os.path.join(audio_captions_dir, "captions.json") if Audio_Path else None
 
     # Output paths (include instruction type and instruction ID for different editing tasks)
-    shot_plan_output_path = os.path.join(
-        config.VIDEO_DATABASE_FOLDER,
-        'Output',
-        f"{video_id}_{audio_id}",
-        f"shot_plan_{instruction_id}.json"
-    )
-    shot_point_output_path = os.path.join(
-        config.VIDEO_DATABASE_FOLDER,
-        'Output',
-        f"{video_id}_{audio_id}",
-        f"shot_point_{instruction_id}.json"
-    )
+    from src.utils.paths import derive_artifact_path
+    shot_plan_output_path = derive_artifact_path(Video_Path, Audio_Path, Instruction, "shot_plan")
+    shot_point_output_path = derive_artifact_path(Video_Path, Audio_Path, Instruction, "shot_point")
     start_time = time.time()
     stage_times = {}
 
@@ -488,7 +777,10 @@ def main():
         if config.VIDEO_TYPE == "film":
             from src.core import EditorCoreAgent, ParallelShotOrchestrator
         elif config.VIDEO_TYPE == "vlog":
-            from src.core_vlog import EditorCoreAgent
+            # 修正：src.core_vlog 不存在，回退到 src.core (它对 vlog 也兼容)
+            from src.core import EditorCoreAgent
+        else:
+            from src.core import EditorCoreAgent
 
         # Create output directory
         os.makedirs(os.path.dirname(shot_point_output_path), exist_ok=True)
