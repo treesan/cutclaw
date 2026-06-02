@@ -44,8 +44,9 @@ class BatchPreprocessor:
         self.max_workers = max_workers
         self.video_type = video_type
         self.skip_existing = skip_existing
-        self.checkpoint = CheckpointManager(project.output_dir)
+        self.checkpoint = CheckpointManager(project.output_dir, project_id=project.project_id)
         self.quality_filter = QualityFilter()
+        self._lock = threading.Lock()
 
     def run(self, clip_ids: Optional[list[str]] = None) -> dict:
         """
@@ -56,6 +57,13 @@ class BatchPreprocessor:
         clips = self.project.clips
         if clip_ids:
             clips = [c for c in clips if c.clip_id in clip_ids]
+
+        # 修正：过滤掉极短视频（< 2s），scene detection 无法产出有意义的场景
+        MIN_CLIP_DURATION_SEC = 2.0
+        pre_filter_count = len(clips)
+        clips = [c for c in clips if c.duration_sec >= MIN_CLIP_DURATION_SEC]
+        if len(clips) < pre_filter_count:
+            print(f"⚠️  跳过 {pre_filter_count - len(clips)} 个极短视频 (< {MIN_CLIP_DURATION_SEC}s)")
 
         # Filter out already-done clips
         pending = []
@@ -86,7 +94,9 @@ class BatchPreprocessor:
                         print(f"  ❌ {clip.clip_id}: unexpected error: {e}")
 
         # Update project.json with progress
-        ProjectManager.save(self.project)
+        # Update project.json with progress (加锁防止与 worker 线程的 clip 属性写入竞争)
+        with self._lock:
+            ProjectManager.save(self.project)
 
         print(f"\n{'='*60}")
         print(f"📊 Preprocessing complete:")
@@ -107,8 +117,9 @@ class BatchPreprocessor:
 
         if not os.path.exists(fp):
             self._mark_failed(clip_id, f"File not found: {fp}")
-            results["failed"] += 1
-            results["errors"].append(f"{clip_id}: file not found")
+            with self._lock:
+                results["failed"] += 1
+                results["errors"].append(f"{clip_id}: file not found")
             return
 
         # Set up output directories for this clip
@@ -126,6 +137,9 @@ class BatchPreprocessor:
 
         try:
             # Step 1: Decode video to frames + shot detection
+            # NOTE: vr (decord.VideoReader) is reused in Steps 3 and 5.
+            # decord lazy-loads frames and keeps the file handle open;
+            # this is safe as long as the source file is not modified/moved.
             print(f"  🎞️  [{clip_id}] Decoding & shot detection...")
             from src.video.preprocess import decode_video_to_frames
             vr = decode_video_to_frames(
@@ -139,11 +153,11 @@ class BatchPreprocessor:
                 image_format='jpg', jpeg_quality=80,
             )
 
-            # Step 2: ASR (film mode only)
+            # Step 2: ASR (film mode only, 跳过无音频流的视频如 DJI 航拍)
             srt_path = os.path.join(frames_dir, "subtitles.srt")
             srt_with_characters = os.path.join(frames_dir, "subtitles_with_characters.srt")
 
-            if self.video_type == "film":
+            if self.video_type == "film" and clip.has_audio:
                 print(f"  🎙️  [{clip_id}] Running ASR...")
                 from src.video.preprocess.asr import run_asr, assign_speakers_to_srt
                 from src.video.deconstruction.get_character import analyze_subtitles
@@ -234,19 +248,21 @@ class BatchPreprocessor:
                 fp, clip_id=clip_id, duration_sec=clip.duration_sec,
             )
 
-            # Update clip with preprocess results
-            clip.scene_summaries_dir = scene_summaries_dir
-            clip.shot_scenes_path = shot_scenes_file
-            clip.asr_path = srt_path if os.path.exists(srt_path) else None
-            clip.captions_path = caption_file if os.path.exists(caption_file) else None
-            clip.quality_score = quality_result.score
-            clip.quality_flags = quality_result.flags
-            clip.is_valid = quality_result.is_valid
+            # Update clip with preprocess results (加锁防止与 ProjectManager.save 竞争)
+            with self._lock:
+                clip.scene_summaries_dir = scene_summaries_dir
+                clip.shot_scenes_path = shot_scenes_file
+                clip.asr_path = srt_path if os.path.exists(srt_path) else None
+                clip.captions_path = caption_file if os.path.exists(caption_file) else None
+                clip.quality_score = quality_result.score
+                clip.quality_flags = quality_result.flags
+                clip.is_valid = quality_result.is_valid
 
             elapsed = time.time() - t0
             self.checkpoint.mark_completed("preprocess", clip_id, artifacts=[scene_summaries_dir])
-            self.project.preprocess_progress[clip_id] = "done"
-            results["success"] += 1
+            with self._lock:
+                self.project.preprocess_progress[clip_id] = "done"
+                results["success"] += 1
             status = "✅" if quality_result.is_valid else "⚠️"
             print(f"  {status} [{clip_id}] Done in {elapsed:.1f}s (quality={quality_result.score:.0f})")
 
@@ -254,9 +270,10 @@ class BatchPreprocessor:
             elapsed = time.time() - t0
             error_msg = f"{clip_id}: {e}"
             self._mark_failed(clip_id, str(e))
-            self.project.preprocess_progress[clip_id] = "failed"
-            results["failed"] += 1
-            results["errors"].append(error_msg)
+            with self._lock:
+                self.project.preprocess_progress[clip_id] = "failed"
+                results["failed"] += 1
+                results["errors"].append(error_msg)
             print(f"  ❌ [{clip_id}] Failed after {elapsed:.1f}s: {e}")
 
     def _mark_failed(self, clip_id: str, error: str):

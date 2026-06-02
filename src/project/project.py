@@ -46,11 +46,13 @@ class Clip:
     duration_sec: float = 0.0
     width: int = 0
     height: int = 0
+    resolution: str = ""                    # e.g. "3840x2160"
     fps: float = 0.0
     codec: str = ""
     bitrate_kbps: int = 0
     creation_time: str = ""                 # ISO 8601
     device: str = ""                        # "dji" / "nikon" / "unknown"
+    has_audio: bool = False                 # 是否有音频流（DJI 航拍通常无音频）
 
     # preprocess result paths (relative to output_dir)
     scene_summaries_dir: Optional[str] = None
@@ -69,6 +71,7 @@ class Day:
     day_idx: int                            # 1-based
     date: str                               # "2025-10-02"
     title: str = ""                         # user-editable, e.g. "西宁 → 青海湖"
+    day_label: str = ""                     # 自动生成的标签，如 "Day 1 (11月14日)"
     clip_ids: list[str] = field(default_factory=list)
     summary: Optional[str] = None
 
@@ -90,10 +93,25 @@ class Project:
     preprocess_progress: dict[str, str] = field(default_factory=dict)  # clip_id -> status
     metadata_path: str = ""                 # project.json path
 
+    def get_day_summary(self) -> str:
+        """Return a human-readable summary grouped by day, for instruction generation."""
+        total_dur = sum(c.duration_sec for c in self.clips)
+        total_dur_min = total_dur / 60
+        lines = [
+            f"项目: {self.name} ({len(self.clips)} 个视频, 总时长 {total_dur_min:.1f} 分钟)",
+        ]
+        clip_map = {c.clip_id: c for c in self.clips}
+        for day in self.days:
+            day_clips = [clip_map[cid] for cid in day.clip_ids if cid in clip_map]
+            day_dur = sum(c.duration_sec for c in day_clips) / 60
+            title = day.title or day.date or f"Day {day.day_idx}"
+            lines.append(f"Day {day.day_idx} ({title}): {len(day_clips)} 个视频, {day_dur:.1f} 分钟")
+        return "\n".join(lines)
+
 
 # ── FFprobe helpers ─────────────────────────────────────────────────
 
-VIDEO_EXTENSIONS = {".mp4", ".mov", ".MP4", ".MOV"}
+VIDEO_EXTENSIONS = {".mp4", ".mov"}
 
 
 def _run_ffprobe(file_path: str) -> dict:
@@ -159,6 +177,12 @@ def _extract_clip_metadata(file_path: str, clip_id: str) -> Clip:
 
     file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
 
+    # resolution 字符串（如 "3840x2160"）
+    resolution = f"{width}x{height}" if width and height else ""
+
+    # has_audio 检测
+    has_audio = bool(audio_stream) and audio_stream.get("codec_name") not in ("", None)
+
     return Clip(
         clip_id=clip_id,
         file_path=os.path.abspath(file_path),
@@ -166,11 +190,13 @@ def _extract_clip_metadata(file_path: str, clip_id: str) -> Clip:
         duration_sec=round(duration, 3),
         width=width,
         height=height,
+        resolution=resolution,
         fps=fps,
         codec=codec,
         bitrate_kbps=bitrate,
         creation_time=creation_time,
         device=device,
+        has_audio=has_audio,
     )
 
 
@@ -236,7 +262,7 @@ class ProjectManager:
             for f in sorted(files):
                 if f.startswith("._"):
                     continue
-                ext = os.path.splitext(f)[1]
+                ext = os.path.splitext(f)[1].lower()
                 if ext in VIDEO_EXTENSIONS:
                     video_files.append(os.path.join(root, f))
 
@@ -291,14 +317,22 @@ class ProjectManager:
 
     @staticmethod
     def load(project_path: str) -> Project:
-        """Load a Project from project.json."""
+        """Load a Project from project.json (支持目录路径自动拼接)。"""
+        # 如果传入的是目录，自动拼接 project.json
+        if os.path.isdir(project_path):
+            project_path = os.path.join(project_path, "project.json")
+
+        if not os.path.exists(project_path):
+            raise FileNotFoundError(f"project.json 不存在: {project_path}")
+
         with open(project_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        clips = [Clip(**c) for c in data.get("clips", [])]
-        days = [Day(**d) for d in data.get("days", [])]
-        bgm_data = data.get("bgm_config", {})
-        segments = [BGMSegment(**s) for s in bgm_data.get("segments", [])]
+        # 修正：None 字段 fallback 到空 list，避免反序列化时 TypeError
+        clips = [Clip(**c) for c in (data.get("clips") or [])]
+        days = [Day(**d) for d in (data.get("days") or [])]
+        bgm_data = data.get("bgm_config") or {}
+        segments = [BGMSegment(**s) for s in (bgm_data.get("segments") or [])]
         bgm_config = BGMConfig(
             strategy=bgm_data.get("strategy", "multi_segment"),
             segments=segments,
@@ -356,7 +390,7 @@ class ProjectManager:
         for day in project.days:
             day_clips = [c for c in project.clips if c.clip_id in day.clip_ids]
             day_dur = sum(c.duration_sec for c in day_clips)
-            title = day.title or day.date
+            title = day.title or day.date or f"Day {day.day_idx}"
             lines.append(f"  Day {day.day_idx} ({title}): {len(day_clips)} clips, {day_dur / 60:.1f} min")
 
         return "\n".join(lines)
@@ -365,11 +399,12 @@ class ProjectManager:
 # ── Grouping ────────────────────────────────────────────────────────
 
 def _group_clips_by_day(clips: list[Clip]) -> list[Day]:
-    """Group clips by their creation date."""
+    """按创建日期分组。无 creation_time 时 fallback 到文件 mtime。"""
     date_map: dict[str, list[str]] = {}
 
     for clip in clips:
         dt_str = clip.creation_time
+        d = ""
         if dt_str:
             try:
                 # Handle ISO format with or without timezone
@@ -377,19 +412,37 @@ def _group_clips_by_day(clips: list[Clip]) -> list[Day]:
                 dt = datetime.fromisoformat(dt_str_clean)
                 d = dt.date().isoformat()
             except (ValueError, AttributeError):
-                d = "unknown"
-        else:
-            d = "unknown"
+                d = ""
+
+        # Fallback: 使用文件 mtime
+        if not d and clip.file_path and os.path.exists(clip.file_path):
+            try:
+                mtime = os.path.getmtime(clip.file_path)
+                d = datetime.fromtimestamp(mtime).date().isoformat()
+            except OSError:
+                d = "unsorted"
+
+        # 最终 fallback: unsorted 组
+        if not d:
+            d = "unsorted"
+
         date_map.setdefault(d, []).append(clip.clip_id)
 
-    # Sort by date, unknown goes last
-    sorted_dates = sorted(date_map.keys(), key=lambda x: (x == "unknown", x))
+    # Sort by date, unsorted goes last
+    sorted_dates = sorted(date_map.keys(), key=lambda x: (x in ("unknown", "unsorted"), x))
 
     days = []
     for idx, d in enumerate(sorted_dates, start=1):
+        # 自动生成 day_label
+        if d in ("unknown", "unsorted"):
+            day_label = f"Day {idx} (未知日期)"
+        else:
+            day_label = f"Day {idx} ({d})"
+
         days.append(Day(
             day_idx=idx,
             date=d,
+            day_label=day_label,
             clip_ids=date_map[d],
         ))
 

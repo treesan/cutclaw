@@ -18,20 +18,20 @@ Dataset/
 reports/
 *.wav
 output*
-Visulization/
 .vscode/
 .CLAUDE.md
-exp/
+CLAUDE.md
 .claude/
+.agents
+skills
+skills-lock.json
+exp/
 exp*
 test*
 paper_results/
-src/video/preprocess/AutoShot
-src/video/preprocess/transnetv2_pytorch
 decord/
 resource.superpowers/
 exp_video_database/
-exp/
 resource/audio/*
 resource/video/*
 resource/subtitle/*
@@ -42,7 +42,6 @@ resource/subtitle/*
 src/config_my.py
 asset/demo_compressed
 ProVideo
-CLAUDE.md
 
 # macOS
 .DS_Store

@@ -35,7 +35,8 @@ class CheckpointManager:
     get a single file per stage.
     """
 
-    def __init__(self, project_dir: str):
+    def __init__(self, project_dir: str, project_id: str = ""):
+        self.project_id = project_id
         self.checkpoint_dir = os.path.join(project_dir, "checkpoints")
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
@@ -63,7 +64,7 @@ class CheckpointManager:
     def mark_completed(self, stage: str, clip_id: Optional[str] = None, artifacts: list[str] | None = None):
         """Convenience: mark a stage as completed."""
         self.write(StageCheckpoint(
-            project_id="",
+            project_id=self.project_id,
             stage=stage,
             status="completed",
             clip_id=clip_id,
@@ -73,7 +74,7 @@ class CheckpointManager:
     def mark_failed(self, stage: str, clip_id: Optional[str] = None, error: str = ""):
         """Convenience: mark a stage as failed."""
         self.write(StageCheckpoint(
-            project_id="",
+            project_id=self.project_id,
             stage=stage,
             status="failed",
             clip_id=clip_id,
@@ -104,3 +105,50 @@ class CheckpointManager:
         """Check if a specific clip has completed a stage."""
         cp = self.read(stage, clip_id)
         return cp is not None and cp.status == "completed"
+
+    def cleanup(self, valid_clip_ids: set[str] | None = None, stage: str | None = None) -> int:
+        """
+        清理过期 checkpoint 文件。
+
+        Args:
+            valid_clip_ids: 仍然有效的 clip_id 集合。如果为 None，则清理指定 stage 的所有 checkpoint。
+            stage: 只清理指定 stage 的 checkpoint。如果为 None，则清理所有 stage。
+
+        Returns:
+            删除的文件数
+        """
+        deleted = 0
+        if not os.path.isdir(self.checkpoint_dir):
+            return 0
+
+        for fname in os.listdir(self.checkpoint_dir):
+            if not fname.endswith(".json"):
+                continue
+
+            # 解析文件名: {stage}_{clip_id}.json 或 {stage}.json
+            stem = fname[:-5]  # 去掉 .json
+            parts = stem.split("_", 1)
+            fname_stage = parts[0]
+            fname_clip_id = parts[1] if len(parts) > 1 else None
+
+            # 过滤 stage
+            if stage and fname_stage != stage:
+                continue
+
+            # 过滤 clip_id
+            if valid_clip_ids is not None:
+                if fname_clip_id is None:
+                    # 项目级 checkpoint 保留
+                    continue
+                if fname_clip_id not in valid_clip_ids:
+                    fp = os.path.join(self.checkpoint_dir, fname)
+                    os.remove(fp)
+                    deleted += 1
+
+        return deleted
+
+    def clear_stage(self, stage: str) -> int:
+        """
+        清除指定 stage 的所有 checkpoint（包括项目级和 clip 级）。
+        """
+        return self.cleanup(stage=stage)

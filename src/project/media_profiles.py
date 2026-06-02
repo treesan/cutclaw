@@ -15,6 +15,7 @@ class AspectRatio(str, Enum):
     PORTRAIT_9_16 = "9:16"
     SQUARE_1_1 = "1:1"
     STANDARD_4_3 = "4:3"
+    PORTRAIT_3_4 = "3:4"
     CINEMATIC_21_9 = "21:9"
 
 
@@ -68,7 +69,7 @@ DOUYIN = MediaProfile(
 XIAOHONGSHU = MediaProfile(
     name="xiaohongshu",
     width=1080, height=1440,
-    aspect_ratio=AspectRatio.STANDARD_4_3,
+    aspect_ratio=AspectRatio.PORTRAIT_3_4,
     fps=30, codec="libx264", audio_codec="aac", crf=22,
     max_duration_seconds=300,
     notes="小红书图文视频",

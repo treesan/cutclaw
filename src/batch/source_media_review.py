@@ -74,7 +74,7 @@ class SourceMediaReview:
         fps_vals: set,
         color_spaces: set,
     ):
-        """Probe a single clip and flag issues."""
+        """Review a single clip, reusing existing metadata where possible."""
         fp = clip.file_path
         if not os.path.exists(fp):
             report.issues.append({
@@ -84,6 +84,31 @@ class SourceMediaReview:
             })
             return
 
+        # Reuse existing Clip metadata for basic fields
+        if clip.width > 0 and clip.height > 0:
+            res_str = f"{clip.width}x{clip.height}"
+            resolutions.add(res_str)
+            if clip.height < 720:
+                report.issues.append({
+                    "clip_id": clip.clip_id,
+                    "severity": "warning",
+                    "message": f"Low resolution: {res_str}",
+                })
+
+        if clip.codec:
+            codecs.add(clip.codec)
+
+        if clip.fps > 0:
+            fps_vals.add(round(clip.fps, 1))
+
+        if clip.duration_sec > 0 and clip.duration_sec < 3.0:
+            report.issues.append({
+                "clip_id": clip.clip_id,
+                "severity": "info",
+                "message": f"Very short clip: {clip.duration_sec:.1f}s",
+            })
+
+        # ffprobe only for colorspace, pixel_format, and audio info
         try:
             info = self._ffprobe(fp)
         except Exception as e:
@@ -95,44 +120,12 @@ class SourceMediaReview:
             return
 
         streams = info.get("streams", [])
-        fmt = info.get("format", {})
         video = next((s for s in streams if s.get("codec_type") == "video"), {})
         audio = next((s for s in streams if s.get("codec_type") == "audio"), {})
 
-        # Resolution
-        w = int(video.get("width", 0) or 0)
-        h = int(video.get("height", 0) or 0)
-        res_str = f"{w}x{h}"
-        if w > 0 and h > 0:
-            resolutions.add(res_str)
-            if h < 720:
-                report.issues.append({
-                    "clip_id": clip.clip_id,
-                    "severity": "warning",
-                    "message": f"Low resolution: {res_str}",
-                })
-
-        # Codec
-        codec_name = video.get("codec_name", "")
-        if codec_name:
-            codecs.add(codec_name)
-
-        # FPS
-        rfr = video.get("r_frame_rate", "0/1")
-        fps = 0.0
-        if "/" in rfr:
-            parts = rfr.split("/")
-            if float(parts[1]) > 0:
-                fps = round(float(parts[0]) / float(parts[1]), 3)
-        else:
-            fps = float(rfr)
-        if fps > 0:
-            fps_vals.add(round(fps, 1))
-
-        # Color space / transfer
+        # Color space / transfer (not available on Clip, need ffprobe)
         colorspace = video.get("color_space", "") or video.get("color_transfer", "") or ""
         pix_fmt = video.get("pix_fmt", "")
-        # Detect HDR via pixel format or transfer characteristics
         is_hdr = "bt2020" in colorspace.lower() or "pq" in colorspace.lower() or "hlg" in colorspace.lower()
         if is_hdr:
             color_spaces.add("bt2020_hdr")
@@ -141,7 +134,7 @@ class SourceMediaReview:
         elif pix_fmt:
             color_spaces.add(f"unknown({pix_fmt})")
 
-        # Audio check
+        # Audio check (not available on Clip, need ffprobe)
         if not audio:
             report.issues.append({
                 "clip_id": clip.clip_id,
@@ -156,15 +149,6 @@ class SourceMediaReview:
                     "severity": "info",
                     "message": "Mono audio",
                 })
-
-        # Duration
-        duration = float(fmt.get("duration", 0) or 0)
-        if duration < 3.0:
-            report.issues.append({
-                "clip_id": clip.clip_id,
-                "severity": "info",
-                "message": f"Very short clip: {duration:.1f}s",
-            })
 
     @staticmethod
     def _ffprobe(file_path: str) -> dict:

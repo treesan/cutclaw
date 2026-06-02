@@ -374,9 +374,9 @@ python render/render_video.py \
 
 ### 9. 批量剪辑（多片段项目）
 
-当项目包含多个源视频（如一次旅行有 40+ 个大疆航拍片段）时，使用 `--project` 命令进行批量处理，为跨片段剪辑做准备。
+当项目包含多个源视频（如一次旅行有 40+ 个大疆航拍片段）时，使用 `--project` 命令进行完整的批量剪辑流程。
 
-**从视频目录创建项目：**
+**Step 1 — 从视频目录创建项目：**
 
 ```bash
 python local_run.py --project create \
@@ -386,7 +386,7 @@ python local_run.py --project create \
 
 扫描目录中所有 `.mp4`/`.mov` 文件，通过 ffprobe 提取元数据，并按录制日期自动分组。
 
-**审查源素材一致性：**
+**Step 2 — 审查源素材一致性：**
 
 ```bash
 python local_run.py --project review-sources \
@@ -395,7 +395,7 @@ python local_run.py --project review-sources \
 
 检查所有片段的编码、分辨率、帧率和色彩空间一致性，标记问题并报告渲染时是否需要归一化。
 
-**批量预处理所有片段：**
+**Step 3 — 批量预处理所有片段：**
 
 ```bash
 python local_run.py --project preprocess \
@@ -406,7 +406,7 @@ python local_run.py --project preprocess \
 
 并行对每个片段执行镜头检测、描述生成、场景合并和场景分析。支持断点续跑——中断后重新执行相同命令会自动跳过已完成的片段。
 
-**构建全局素材索引：**
+**Step 4 — 构建全局素材索引：**
 
 ```bash
 python local_run.py --project build-index \
@@ -415,11 +415,56 @@ python local_run.py --project build-index \
 
 将所有片段的场景描述汇总为扁平化的 `material_index.json`，供策划智能体在整个项目范围内选片。
 
-**查看项目状态：**
+**Step 5 — 生成分镜方案（自动 BGM 节奏分析）：**
+
+```bash
+python local_run.py --project plan \
+  --project-path "Output/Projects/<项目ID>/project.json" \
+  --profile bilibili_1080p \
+  --strategy "壮阔航拍配合电影感转场"
+```
+
+策划智能体自动分析 BGM（madmom 关键点检测 + LLM 段落/子段落描述），从素材索引中选场景，生成跨片段分镜方案。BGM 分析结果缓存到 `bgm_captions/` 目录。
+
+**Step 6 — 生成剪辑点（精确时间戳）：**
+
+```bash
+python local_run.py --project edit \
+  --project-path "Output/Projects/<项目ID>/project.json" \
+  --profile bilibili_1080p
+```
+
+读取分镜方案，按源片段分组，对每个片段调用 DirectShotSelector（LLM）生成精确入点出点。输出 `shot_point_<profile>.json`，每个 shot 包含 `clip_file_path` 标识来源文件。
+
+**Step 7 — 渲染成片：**
+
+```bash
+python local_run.py --project render \
+  --project-path "Output/Projects/<项目ID>/project.json" \
+  --profile bilibili_1080p \
+  --extract-timeout 600
+```
+
+多源渲染器：验证 → 提取 → 拼接 → BGM 混合 → 字幕叠加 → 结尾视频。自动从 `shot_points/` 目录发现 shot_point 文件。支持 `--with-ending`、`--ending-path`、`--ending-duration`、`--ending-fade` 追加结尾片段。
+
+**随时查看项目状态：**
 
 ```bash
 python local_run.py --project status \
   --project-path "Output/Projects/<项目ID>/project.json"
+```
+
+**批量流程一键执行：**
+
+```bash
+PROJECT="Output/Projects/我的旅行/project.json"
+python local_run.py --project create --video-dir "/视频目录" --project-name "我的旅行"
+python local_run.py --project review-sources --project-path "$PROJECT"
+python local_run.py --project preprocess --project-path "$PROJECT" --type vlog --max-workers 2
+python local_run.py --project build-index --project-path "$PROJECT"
+python local_run.py --project plan --project-path "$PROJECT" --profile bilibili_1080p --strategy "旅行 vlog"
+python local_run.py --project edit --project-path "$PROJECT" --profile bilibili_1080p
+python local_run.py --project render --project-path "$PROJECT" --profile bilibili_1080p
 ```
 
 ### 10. 常用配置覆盖
@@ -457,6 +502,10 @@ python local_run.py ... \
 | 片段预处理 | `Output/Projects/{ID}/Clips/{clip_id}/` | 逐片段场景分析 |
 | 断点 | `Output/Projects/{ID}/checkpoints/` | 可续跑的阶段状态 |
 | 素材索引 | `Output/Projects/{ID}/material_index.json` | 供策划使用的全局场景索引 |
+| BGM 分析 | `Output/Projects/{ID}/bgm_captions/` | 自动生成的 BGM 节奏分析 |
+| 分镜方案 | `Output/Projects/{ID}/shot_plans/shot_plan_<profile>.json` | 跨片段创意分镜 |
+| 剪辑点 | `Output/Projects/{ID}/shot_points/shot_point_<profile>.json` | 含来源片段的逐镜头时间戳 |
+| 渲染成片 | `Output/Projects/{ID}/output/<profile>.mp4` | 多源渲染最终视频 |
 
 ---
 

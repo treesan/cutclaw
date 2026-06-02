@@ -359,9 +359,9 @@ python src/short_video_editor.py \
 
 ### 9. Batch Editing (Multi-Clip Project)
 
-For projects with multiple source clips (e.g. a trip with 40+ DJI drone videos), use the `--project` commands to batch-process all clips and prepare them for cross-clip editing.
+For projects with multiple source clips (e.g. a trip with 40+ DJI drone videos), use the `--project` commands to create, preprocess, plan, edit, and render from a unified workflow.
 
-**Create a project from a video directory:**
+**Step 1 — Create a project from a video directory:**
 
 ```bash
 python local_run.py --project create \
@@ -369,9 +369,9 @@ python local_run.py --project create \
   --project-name "My Trip"
 ```
 
-This scans all `.mp4`/`.mov` files, extracts metadata via ffprobe, and groups clips by recording date.
+Scans all `.mp4`/`.mov` files, extracts metadata via ffprobe, and groups clips by recording date.
 
-**Review source media consistency:**
+**Step 2 — Review source media consistency:**
 
 ```bash
 python local_run.py --project review-sources \
@@ -380,7 +380,7 @@ python local_run.py --project review-sources \
 
 Checks codec, resolution, fps, and colorspace across all clips. Flags issues and reports whether normalization is needed during rendering.
 
-**Batch preprocess all clips:**
+**Step 3 — Batch preprocess all clips:**
 
 ```bash
 python local_run.py --project preprocess \
@@ -391,7 +391,7 @@ python local_run.py --project preprocess \
 
 Runs shot detection, captioning, scene merge, and scene analysis for every clip in parallel. Supports checkpoint-based resume — if interrupted, rerun the same command to skip completed clips.
 
-**Build global material index:**
+**Step 4 — Build global material index:**
 
 ```bash
 python local_run.py --project build-index \
@@ -400,11 +400,57 @@ python local_run.py --project build-index \
 
 Aggregates all clip scene summaries into a flat `material_index.json` for the planner agent to select shots across the entire project.
 
-**Check project status:**
+**Step 5 — Generate shot plan (BGM rhythm auto-analysis):**
+
+```bash
+python local_run.py --project plan \
+  --project-path "Output/Projects/<project_id>/project.json" \
+  --profile bilibili_1080p \
+  --strategy "epic drone shots with cinematic transitions"
+```
+
+The planner agent automatically analyzes the BGM (madmom keypoint detection + LLM section/sub-segment captioning), selects scenes from the material index, and generates a cross-clip shot plan. BGM analysis results are cached to `bgm_captions/`.
+
+**Step 6 — Generate shot points (precise timestamps):**
+
+```bash
+python local_run.py --project edit \
+  --project-path "Output/Projects/<project_id>/project.json" \
+  --profile bilibili_1080p
+```
+
+Reads the shot plan, groups shots by source clip, and runs DirectShotSelector (LLM) per clip to generate precise start/end timestamps. Outputs `shot_point_<profile>.json` with `clip_file_path` per shot.
+
+**Step 7 — Render the final video:**
+
+```bash
+python local_run.py --project render \
+  --project-path "Output/Projects/<project_id>/project.json" \
+  --profile bilibili_1080p \
+  --extract-timeout 600
+```
+
+Multi-source renderer: validates → extracts → stitches → BGM mix → subtitles → ending video. Shot point auto-discovered from `shot_points/` directory. Supports `--with-ending`, `--ending-path`, `--ending-duration`, `--ending-fade` for appending an outro clip.
+
+**Check project status at any time:**
 
 ```bash
 python local_run.py --project status \
   --project-path "Output/Projects/<project_id>/project.json"
+```
+
+**Batch workflow summary:**
+
+```bash
+# Full pipeline (5 commands)
+PROJECT="Output/Projects/MyTrip/project.json"
+python local_run.py --project create --video-dir "/videos" --project-name "MyTrip"
+python local_run.py --project review-sources --project-path "$PROJECT"
+python local_run.py --project preprocess --project-path "$PROJECT" --type vlog --max-workers 2
+python local_run.py --project build-index --project-path "$PROJECT"
+python local_run.py --project plan --project-path "$PROJECT" --profile bilibili_1080p --strategy "travel vlog"
+python local_run.py --project edit --project-path "$PROJECT" --profile bilibili_1080p
+python local_run.py --project render --project-path "$PROJECT" --profile bilibili_1080p
 ```
 
 ### 10. Key Config Overrides
@@ -442,6 +488,10 @@ python local_run.py ... \
 | Clip Preprocess | `Output/Projects/{ID}/Clips/{clip_id}/` | Per-clip scene analysis |
 | Checkpoints | `Output/Projects/{ID}/checkpoints/` | Resumable stage state |
 | Material Index | `Output/Projects/{ID}/material_index.json` | Global scene index for planner |
+| BGM Captions | `Output/Projects/{ID}/bgm_captions/` | Auto-generated BGM rhythm analysis |
+| Shot Plan | `Output/Projects/{ID}/shot_plans/shot_plan_<profile>.json` | Cross-clip creative plan |
+| Shot Points | `Output/Projects/{ID}/shot_points/shot_point_<profile>.json` | Per-shot timestamps with source clip |
+| Render Output | `Output/Projects/{ID}/output/<profile>.mp4` | Final multi-source rendered video |
 
 ---
 

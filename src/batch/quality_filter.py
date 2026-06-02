@@ -146,46 +146,34 @@ class QualityFilter:
         if not os.path.exists(clip_path):
             return []
 
+        # Get video duration first
+        probe_cmd = [
+            "ffprobe", "-v", "quiet",
+            "-show_entries", "format=duration",
+            "-of", "json",
+            clip_path,
+        ]
+        try:
+            probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=15)
+            probe_data = json.loads(probe_result.stdout)
+            duration = float(probe_data.get("format", {}).get("duration", 0))
+        except Exception:
+            duration = 10.0
+
+        if duration <= 0:
+            return []
+
+        # Calculate interval, skip first/last 5%
+        start_t = duration * 0.05
+        end_t = duration * 0.95
+        if n <= 1:
+            timestamps = [(start_t + end_t) / 2]
+        else:
+            step = (end_t - start_t) / (n - 1)
+            timestamps = [start_t + i * step for i in range(n)]
+
         frames = []
         with tempfile.TemporaryDirectory(prefix="cutclaw_qf_") as tmpdir:
-            cmd = [
-                "ffmpeg", "-v", "quiet",
-                "-i", clip_path,
-                "-vf", f"select='not(mod(n\\,{max(1, 30)}))',setpts=N/FRAME_RATE/TB",
-                "-frames:v", str(n),
-                "-vsync", "vfr",
-                "-f", "rawvideo",
-                "-pix_fmt", "bgr24",
-                "-s", "320x180",  # downscale for speed
-                os.path.join(tmpdir, "frame_%03d.raw"),
-            ]
-            # Use a simpler approach: extract frames at intervals
-            # Get video duration first
-            probe_cmd = [
-                "ffprobe", "-v", "quiet",
-                "-show_entries", "format=duration",
-                "-of", "json",
-                clip_path,
-            ]
-            try:
-                probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=15)
-                probe_data = json.loads(probe_result.stdout)
-                duration = float(probe_data.get("format", {}).get("duration", 0))
-            except Exception:
-                duration = 10.0
-
-            if duration <= 0:
-                return []
-
-            # Calculate interval, skip first/last 5%
-            start_t = duration * 0.05
-            end_t = duration * 0.95
-            if n <= 1:
-                timestamps = [(start_t + end_t) / 2]
-            else:
-                step = (end_t - start_t) / (n - 1)
-                timestamps = [start_t + i * step for i in range(n)]
-
             for idx, ts in enumerate(timestamps):
                 out_path = os.path.join(tmpdir, f"f{idx:03d}.jpg")
                 cmd = [
@@ -204,10 +192,14 @@ class QualityFilter:
                             if img is not None:
                                 frames.append(img)
                         else:
-                            # Fallback: read raw bytes as numpy
-                            img = np.fromfile(out_path, dtype=np.uint8)
-                            # Can't decode without cv2, skip
-                            pass
+                            # Fallback: use PIL for image decoding
+                            try:
+                                from PIL import Image
+                                img = np.array(Image.open(out_path))
+                                if img is not None:
+                                    frames.append(img)
+                            except ImportError:
+                                pass
                 except Exception:
                     continue
 

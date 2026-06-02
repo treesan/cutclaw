@@ -194,6 +194,25 @@ def _run_scenedetect_segment(args: tuple) -> List:
     )
 
 
+def _compute_safe_workers(total_frames: int, min_scene_len: int, frame_skip: int, num_workers: int) -> tuple[int, int]:
+    """
+    计算安全的 num_workers 和 warmup_frames。
+
+    num_workers 不能超过 (total_frames / warmup) 的一半，
+    否则每段可用空间 ≤ warmup，scenedetect 没有机会检测场景。
+
+    Returns:
+        (safe_num_workers, warmup_frames)
+    """
+    # warmup must cover: AdaptiveDetector window (window_width=2 → 5 frames) + min_scene_len,
+    # all scaled by (frame_skip+1) to account for skipped frames.
+    warmup_frames = (min_scene_len + 5) * (frame_skip + 1)
+    safe_workers = max(1, total_frames // (warmup_frames * 2))
+    if num_workers > safe_workers:
+        num_workers = safe_workers
+    return num_workers, warmup_frames
+
+
 def _run_scenedetect_parallel(
     video_path: str,
     threshold: float,
@@ -208,9 +227,9 @@ def _run_scenedetect_parallel(
     so that AdaptiveDetector's sliding window is warmed up before the region of interest.
     Scenes detected in the warmup region are discarded.
     """
-    # warmup must cover: AdaptiveDetector window (window_width=2 → 5 frames) + min_scene_len,
-    # all scaled by (frame_skip+1) to account for skipped frames.
-    warmup_frames = (min_scene_len + 5) * (frame_skip + 1)
+    num_workers, warmup_frames = _compute_safe_workers(
+        total_frames, min_scene_len, frame_skip, num_workers
+    )
 
     segment_size = total_frames // num_workers
     segments = []
@@ -265,8 +284,18 @@ def scenedetect_extract_and_detect(
         frame_indices.append(int(current_frame))
         current_frame += sample_interval
 
-    # Compute frame_skip so scenedetect processes at roughly target_fps
-    frame_skip = max(0, round(video_fps / target_fps) - 1)
+    # Compute frame_skip so scenedetect processes at roughly target_fps.
+    # 优先使用 config.FRAME_SKIP（>0 时）；否则按 target_fps 自动计算。
+    try:
+        from src import config as _app_config
+        config_frame_skip = getattr(_app_config, 'FRAME_SKIP', 0)
+    except (ImportError, AttributeError):
+        config_frame_skip = 0
+
+    if config_frame_skip > 0:
+        frame_skip = config_frame_skip
+    else:
+        frame_skip = max(0, round(video_fps / target_fps) - 1)
 
     shot_scenes_path = os.path.join(frames_dir, "shot_scenes.txt")
     video_reader = _create_decord_reader(video_path, target_resolution)
@@ -275,6 +304,14 @@ def scenedetect_extract_and_detect(
         print(f"[SceneDetect] Found existing shot_scenes.txt, skipping detection")
         scene_list = None  # will load from file below
     else:
+        # 修正 num_workers 在 print 之前，确保日志显示实际使用值
+        actual_num_workers, warmup_frames = _compute_safe_workers(
+            end_frame, min_scene_len, frame_skip, num_workers
+        )
+        if actual_num_workers < num_workers:
+            print(f"[SceneDetect] 修正 num_workers: {num_workers} → {actual_num_workers} (warmup={warmup_frames}, total={end_frame})")
+        num_workers = actual_num_workers
+
         print(f"[SceneDetect] Running PySceneDetect (frame_skip={frame_skip}, num_workers={num_workers})")
         if num_workers > 1:
             scene_list = _run_scenedetect_parallel(

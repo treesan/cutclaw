@@ -64,6 +64,19 @@ def build_material_index(project: Project) -> MaterialIndex:
     Scan all clips' scene_summaries_video directories, parse scene JSONs,
     and build a flat MaterialIndex.
     """
+    # 修正：过滤掉极短视频（< 2s），避免进入锦书策划浪费 LLM 调用
+    MIN_CLIP_DURATION_SEC = 2.0
+    skipped_clips: list[str] = []
+    valid_clips = []
+    for c in project.clips:
+        if c.duration_sec < MIN_CLIP_DURATION_SEC:
+            skipped_clips.append(f"{c.clip_id} ({c.duration_sec:.1f}s)")
+            continue
+        valid_clips.append(c)
+
+    if skipped_clips:
+        print(f"⚠️  [material_index] 跳过 {len(skipped_clips)} 个极短视频: {skipped_clips}")
+
     index = MaterialIndex(
         project_id=project.project_id,
         build_time=datetime.now().isoformat(),
@@ -77,11 +90,12 @@ def build_material_index(project: Project) -> MaterialIndex:
 
     global_scene_counter = 0
 
-    for clip in project.clips:
+    for clip in valid_clips:
         if not clip.is_valid:
             continue
 
         index.total_clips += 1
+        clip_scene_counter = 0  # 修正：每个 clip 内的 scene 独立计数
 
         scene_dir = clip.scene_summaries_dir
         if not scene_dir or not os.path.isdir(scene_dir):
@@ -101,13 +115,14 @@ def build_material_index(project: Project) -> MaterialIndex:
                 continue
 
             global_scene_counter += 1
+            clip_scene_counter += 1  # 每个 clip 内的独立计数器
             scene_id = f"S{global_scene_counter:03d}"
 
             entry = _scene_data_to_entry(
-                scene_data=scene_id,
+                scene_id=scene_id,
                 clip=clip,
-                scene_data_full=scene_data,
-                scene_idx=global_scene_counter,
+                scene_data=scene_data,
+                scene_idx=clip_scene_counter,  # 修正：使用 clip 内独立索引
                 day_idx=clip_to_day.get(clip.clip_id, 0),
             )
             index.scenes.append(entry)
@@ -133,43 +148,65 @@ def load_material_index(path: str) -> MaterialIndex:
 
 
 def _scene_data_to_entry(
-    scene_data: str,
+    scene_id: str,
     clip,
-    scene_data_full: dict,
+    scene_data: dict,
     scene_idx: int,
     day_idx: int,
 ) -> SceneEntry:
     """Convert a scene summary JSON dict into a SceneEntry."""
-    # Scene summary JSONs from scene_analysis_video typically have:
-    # time_start, time_end, scene_caption, environment, dialogue, etc.
-    start_sec = float(scene_data_full.get("time_start", 0) or scene_data_full.get("start_sec", 0) or 0)
-    end_sec = float(scene_data_full.get("time_end", 0) or scene_data_full.get("end_sec", 0) or 0)
+    # 场景 JSON 格式（scene_analysis_video 产出）：
+    # {
+    #   "scene_id": "scene_0",
+    #   "time_range": {"start_seconds": 0.0, "end_seconds": 3.5},
+    #   "video_analysis": {
+    #     "scene_caption": {
+    #       "scene_summary": {"narrative": "...", "key_event": "...", "location": "...", "emotion": "..."},
+    #       "scene_classification": {"is_usable": true, "importance_score": 5, "scene_type": "..."}
+    #     }
+    #   }
+    # }
+
+    # 时间范围（支持浮秒或 "HH:MM:SS.SSS" 字符串格式）
+    time_range = scene_data.get("time_range", {})
+    start_sec = _parse_time_value(time_range.get("start_seconds", 0))
+    end_sec = _parse_time_value(time_range.get("end_seconds", 0))
     duration = max(0, end_sec - start_sec)
 
+    # 场景描述（嵌套在 video_analysis.scene_caption.scene_summary 中）
     caption = ""
-    scene_caption = scene_data_full.get("scene_caption", {})
-    if isinstance(scene_caption, dict):
-        caption = scene_caption.get("caption", "") or scene_caption.get("description", "")
-    elif isinstance(scene_caption, str):
-        caption = scene_caption
+    location = ""
+    emotion = ""
+    shot_type = ""
+    has_protagonist = False
 
-    # Extract tags from environment / shot_type fields
+    video_analysis = scene_data.get("video_analysis", {})
+    scene_caption = video_analysis.get("scene_caption", {})
+    scene_summary = scene_caption.get("scene_summary", {})
+    scene_classification = scene_caption.get("scene_classification", {})
+
+    if isinstance(scene_summary, dict):
+        caption = scene_summary.get("narrative", "") or scene_summary.get("key_event", "")
+        location = scene_summary.get("location", "")
+        emotion = scene_summary.get("emotion", "")
+
+    if isinstance(scene_classification, dict):
+        shot_type = scene_classification.get("scene_type", "")
+
+    # 标签
     tags = []
-    env = scene_data_full.get("environment", "")
+    env = scene_summary.get("environment", "") if isinstance(scene_summary, dict) else ""
     if env:
         tags.append(env)
-    shot_type = scene_data_full.get("shot_type", "") or ""
-    location = scene_data_full.get("location", "") or ""
-    emotion = scene_data_full.get("emotion", "") or ""
 
-    dialogue = scene_data_full.get("dialogue", "")
+    dialogue = scene_data.get("dialogue", "")
     has_dialogue = bool(dialogue and dialogue.strip())
 
     return SceneEntry(
-        scene_id=f"S{scene_idx:03d}",
+        scene_id=scene_id,  # 修正：使用调用方传入的全局 scene_id
         clip_id=clip.clip_id,
         clip_file_path=clip.file_path,
-        scene_idx_in_clip=scene_idx,
+        scene_idx_in_clip=scene_idx,  # clip 内独立计数（per-clip）
         start_sec=start_sec,
         end_sec=end_sec,
         duration_sec=round(duration, 3),
@@ -196,3 +233,32 @@ def _natural_sort_key(s: str):
     """Sort key for natural ordering of filenames like scene_1.json, scene_10.json."""
     import re
     return [int(c) if c.isdigit() else c.lower() for c in re.split(r'(\d+)', s)]
+
+
+def _parse_time_value(value) -> float:
+    """
+    解析时间字段为浮点秒数。
+    支持: 数字（int/float）或 "HH:MM:SS.SSS" 字符串
+    """
+    if value is None or value == "":
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        # 尝试直接转 float
+        try:
+            return float(value)
+        except ValueError:
+            pass
+        # 解析 "HH:MM:SS.SSS" 格式
+        try:
+            parts = value.split(":")
+            if len(parts) == 3:
+                h, m, s = parts
+                return int(h) * 3600 + int(m) * 60 + float(s)
+            elif len(parts) == 2:
+                m, s = parts
+                return int(m) * 60 + float(s)
+        except (ValueError, IndexError):
+            pass
+    return 0.0
