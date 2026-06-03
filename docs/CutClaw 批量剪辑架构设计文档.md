@@ -1,8 +1,8 @@
-# CutClaw 批量剪辑架构设计文档 v2
+# VCutClaw 批量剪辑架构设计文档
 
 > 基于原始设计文档 + CutClaw 源码深度分析 + OpenMontage 架构借鉴 + 实际素材调研
 > 日期: 2026-05-28
-> 目标素材: `/Volumes/Data/Media/20251001青甘小环线/视频` (42 个视频, DJI 4K HEVC 60fps)
+> 目标素材: 42 个视频, DJI 4K HEVC 60fps
 
 ---
 
